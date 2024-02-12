@@ -3,7 +3,15 @@
     <style name="Base.Theme.ArcheryTimer" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/black</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:navigationBarColor">@color/gray</item>
+
     </style>
 
+
     <style name="Theme.ArcheryTimer" parent="Base.Theme.ArcheryTimer" />
+
+
 </resources>

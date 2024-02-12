@@ -19,22 +19,22 @@ import android.widget.RadioGroup;
 
 import com.google.android.material.slider.Slider;
 
+import org.json.JSONObject;
+
 import java.net.InetAddress;
+import java.util.HashMap;
+import java.util.Map;
 
 import de.drazil.archerytimer.udp.Sender;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link SettingsFragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+
 public class SettingsFragment extends Fragment {
 
+    private RadioGroup radioGroup = null;
 
     public SettingsFragment() {
         // Required empty public constructor
     }
-
 
 
     @Override
@@ -46,9 +46,10 @@ public class SettingsFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-
+        JSONObject payload = new JSONObject();
         try {
-            Sender.broadcast("!tournament:0:0:0!");
+            payload.put("name", "tournament");
+            Sender.broadcastJSON(payload.toString());
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }
@@ -59,26 +60,26 @@ public class SettingsFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
-        RadioGroup radioGroup = (RadioGroup) view.findViewById(R.id.modeGroup);
-        int selectedId = radioGroup.getCheckedRadioButtonId();
-        RadioButton radioButton = (RadioButton) view.findViewById(selectedId);
+        radioGroup = (RadioGroup) view.findViewById(R.id.modeGroup);
 
-
-        final EditText passesCountView = (EditText) view.findViewById(R.id.passesCount);
-        float v1 = sharedPreferences.getFloat(getString(R.string.passesCountStore), 0);
-        passesCountView.setText(String.valueOf(v1));
-        final Slider passSelectorView = (Slider) view.findViewById(R.id.passSlider);
-        passSelectorView.setValue(sharedPreferences.getFloat(getString(R.string.passesCountStore), 0));
-        passSelectorView.addOnChangeListener(new Slider.OnChangeListener() {
-
+        RadioButton aButton = (RadioButton) view.findViewById(R.id.modeAB);
+        aButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
-                passesCountView.setText(String.valueOf(value ));
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putFloat(getString(R.string.passesCountStore), value);
-                editor.apply();
+            public void onClick(View _view) {
+                calcActionTime(view, sharedPreferences);
             }
         });
+        RadioButton bButton = (RadioButton) view.findViewById(R.id.modeABCD);
+        bButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View _view) {
+                calcActionTime(view, sharedPreferences);
+            }
+        });
+
+        final EditText passesCountView = (EditText) view.findViewById(R.id.passesCount);
+        int v1 = sharedPreferences.getInt(getString(R.string.passesCountStore), 0);
+        passesCountView.setText(String.valueOf(v1));
 
         final Slider volumeSelectorView = (Slider) view.findViewById(R.id.volumeSlider);
         volumeSelectorView.setValue(sharedPreferences.getFloat(getString(R.string.volumeStore), 0.5f));
@@ -86,7 +87,6 @@ public class SettingsFragment extends Fragment {
             @Override
             public void onValueChange(@NonNull Slider slider, float value, boolean fromUser) {
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                Log.i("VOLUME", String.valueOf(value));
                 editor.putFloat(getString(R.string.volumeStore), value);
                 editor.apply();
             }
@@ -100,9 +100,14 @@ public class SettingsFragment extends Fragment {
             @Override
             public void onStopTrackingTouch(@NonNull Slider slider) {
                 float volume = sharedPreferences.getFloat(getString(R.string.volumeStore), 0);
-                String command = String.format("!volume:0:%s:0!", String.valueOf(volume));
+
                 try {
-                    Sender.broadcast(command);
+                    JSONObject valuesObject = new JSONObject();
+                    valuesObject.put("value", (int) (volume * 100));
+                    JSONObject payload = new JSONObject();
+                    payload.put("name", "volume");
+                    payload.put("values", valuesObject);
+                    Sender.broadcastJSON(payload.toString());
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -112,6 +117,7 @@ public class SettingsFragment extends Fragment {
 
         final EditText prepareTimeView = (EditText) view.findViewById(R.id.prepareTime);
         prepareTimeView.setText(String.valueOf(sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0)));
+
         prepareTimeView.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -119,8 +125,13 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                String value = "0";
+                if (charSequence.length() > 0) {
+                    value = prepareTimeView.getText().toString();
+                }
+                calcActionTime(view, sharedPreferences);
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.prepareTimeStore), Integer.valueOf(charSequence.toString()));
+                editor.putInt(getString(R.string.prepareTimeStore), Integer.valueOf(value));
                 editor.apply();
             }
 
@@ -138,12 +149,14 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                String value = "0";
                 if (charSequence.length() > 0) {
-                    calcActionTime(view, sharedPreferences);
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.putInt(getString(R.string.arrowTimeStore), Integer.valueOf(charSequence.toString()));
-                    editor.apply();
+                    value = arrowTimeView.getText().toString();
                 }
+                calcActionTime(view, sharedPreferences);
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.arrowCountStore), Integer.valueOf(value));
+                editor.apply();
             }
 
             @Override
@@ -161,12 +174,15 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+                String value = "0";
                 if (charSequence.length() > 0) {
-                    calcActionTime(view, sharedPreferences);
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.putInt(getString(R.string.arrowCountStore), Integer.valueOf(charSequence.toString()));
-                    editor.apply();
+                    value = arrowCountView.getText().toString();
                 }
+                calcActionTime(view, sharedPreferences);
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.arrowCountStore), Integer.valueOf(value));
+                editor.apply();
             }
 
             @Override
@@ -180,18 +196,39 @@ public class SettingsFragment extends Fragment {
     }
 
     private void calcActionTime(View rootView, SharedPreferences sharedPreferences) {
-        final EditText arrowTimeView = (EditText) rootView.findViewById(R.id.arrowTime);
-        final EditText arrowAmountView = (EditText) rootView.findViewById(R.id.arrowCount);
-        final EditText actionTimeView = (EditText) rootView.findViewById(R.id.actionTime);
-        String arrowTime = arrowTimeView.getText().toString();
-        String arrowCount = arrowAmountView.getText().toString();
-        int arrowTimeValue = null == arrowTime || arrowTime.equals("") ? 0 : Integer.valueOf(arrowTime);
-        int arrowCountValue = null == arrowCount || arrowCount.equals("") ? 0 : Integer.valueOf(arrowCount);
-        int actionTime = arrowTimeValue * arrowCountValue;
-        actionTimeView.setText(String.valueOf(actionTime));
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putInt(getString(R.string.actionTimeStore), actionTime);
-        editor.apply();
+        try {
 
+
+            final EditText arrowTimeView = (EditText) rootView.findViewById(R.id.arrowTime);
+            final EditText arrowAmountView = (EditText) rootView.findViewById(R.id.arrowCount);
+            final EditText actionTimeView = (EditText) rootView.findViewById(R.id.actionTime);
+            final EditText prepareTimeView = (EditText) rootView.findViewById(R.id.prepareTime);
+            String prepareTime = prepareTimeView.getText().toString();
+            String arrowTime = arrowTimeView.getText().toString();
+            String arrowCount = arrowAmountView.getText().toString();
+            int prepareTimeValue = null == prepareTime || prepareTime.equals("") ? 0 : Integer.valueOf(prepareTime);
+            int arrowTimeValue = null == arrowTime || arrowTime.equals("") ? 0 : Integer.valueOf(arrowTime);
+            int arrowCountValue = null == arrowCount || arrowCount.equals("") ? 0 : Integer.valueOf(arrowCount);
+            int actionTime = arrowTimeValue * arrowCountValue;
+            actionTimeView.setText(String.valueOf(actionTime));
+            SharedPreferences.Editor editor = sharedPreferences.edit();
+            editor.putInt(getString(R.string.actionTimeStore), actionTime);
+            editor.apply();
+
+
+            int selectedId = radioGroup.getCheckedRadioButtonId();
+            RadioButton radioButton = (RadioButton) rootView.findViewById(selectedId);
+            JSONObject valuesObject = new JSONObject();
+            valuesObject.put("prepareTime", prepareTimeValue);
+            valuesObject.put("actionTime", actionTime);
+            valuesObject.put("mode", radioButton.getText().toString());
+            JSONObject payload = new JSONObject();
+            payload.put("name", "prepare");
+            payload.put("values", valuesObject);
+            Sender.broadcastJSON(payload.toString());
+
+        } catch (Exception ex) {
+            Log.e("Error", ex.getMessage());
+        }
     }
 }

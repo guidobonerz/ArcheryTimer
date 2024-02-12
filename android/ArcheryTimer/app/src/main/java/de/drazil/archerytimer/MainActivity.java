@@ -25,7 +25,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(getString(R.string.modeStore), "AB");
-        editor.putFloat(getString(R.string.passesCountStore), 0.0f);
+        editor.putInt(getString(R.string.passesCountStore), 1);
         editor.putFloat(getString(R.string.volumeStore), 0.5f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);
@@ -44,8 +44,8 @@ public class MainActivity extends AppCompatActivity {
                 replaceFragment(new TournamentFragment());
             } else if (item.getItemId() == R.id.settings) {
                 replaceFragment(new SettingsFragment());
-            } else if (item.getItemId() == R.id.fun) {
-                replaceFragment(new FunFragment());
+            } else if (item.getItemId() == R.id.relax) {
+                replaceFragment(new RelaxFragment());
             }
             return true;
         });

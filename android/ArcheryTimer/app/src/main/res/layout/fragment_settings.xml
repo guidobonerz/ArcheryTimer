@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-
 <!-- TODO: Update blank fragment layout -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -59,34 +58,11 @@
     </com.google.android.material.textfield.TextInputLayout>
 
 
-    <com.google.android.material.slider.Slider
-        android:id="@+id/passSlider"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-
-        android:paddingTop="20dp"
-        android:paddingBottom="20dp"
-        android:text="1" />
-
-
-    <Switch
-        android:id="@+id/switch1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingBottom="30dp"
-        android:text="Pause nach der Hälfte der Passen" />
-
-    <TextView
-        android:id="@+id/textView2"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Die folgenden Felder werden in Sekunden angegeben" />
-
     <com.google.android.material.textfield.TextInputLayout
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Vorbereitungszeit">
+        android:hint="Vorbereitungszeit/Sek.">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/prepareTime"
@@ -99,7 +75,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Zeit pro Pfeil">
+        android:hint="Zeit pro Pfeil/Sek.">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/arrowTime"
@@ -114,7 +90,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:enabled="true"
-        android:hint="Zeit pro Passe">
+        android:hint="Zeit pro Passe/Sek.">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/actionTime"
@@ -123,18 +99,29 @@
             android:enabled="false"
             android:inputType="number" />
     </com.google.android.material.textfield.TextInputLayout>
-    <TextView
-        android:id="@+id/textView3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Lautstärke des Zeitgebers" />
 
-    <com.google.android.material.slider.Slider
-        android:id="@+id/volumeSlider"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingTop="20dp"
-        android:paddingBottom="20dp"
-        android:text="50" />
+        android:layout_height="match_parent"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/textView3"
+            android:layout_width="178dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:text="Lautstärke" />
+
+        <com.google.android.material.slider.Slider
+            android:id="@+id/volumeSlider"
+            android:layout_width="match_parent"
+            android:layout_height="35dp"
+            android:layout_weight="1"
+            android:paddingTop="20dp"
+            android:paddingBottom="20dp"
+            android:text="50" />
+    </LinearLayout>
+
 </LinearLayout>
 

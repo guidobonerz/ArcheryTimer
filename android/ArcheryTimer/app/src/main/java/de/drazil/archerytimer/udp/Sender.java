@@ -11,8 +11,13 @@ import java.net.InetAddress;
 public class Sender {
 
     public static void broadcast(String broadcastMessage) throws IOException {
-        broadcast(broadcastMessage,InetAddress.getByName("255.255.255.255"));
+        broadcast(broadcastMessage, InetAddress.getByName("255.255.255.255"));
     }
+
+    public static void broadcastJSON(String broadcastMessage) throws IOException {
+        broadcast("archery_timer!" + broadcastMessage, InetAddress.getByName("255.255.255.255"));
+    }
+
     public static void broadcast(String broadcastMessage, InetAddress address) throws IOException {
         Log.i("INFO", broadcastMessage);
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
