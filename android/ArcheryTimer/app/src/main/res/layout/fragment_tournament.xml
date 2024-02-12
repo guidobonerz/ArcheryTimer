@@ -1,39 +1,61 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
+    android:padding="0dp"
+
     tools:context=".TournamentFragment">
 
-    <LinearLayout
+    <TableRow
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="horizontal"
-        android:paddingTop="20dp">
+        android:gravity="center"
+        android:layout_marginTop="40dp">
 
-        <Button
+        <ImageButton
             android:id="@+id/start"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Start" />
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#423B3B"
+            android:layout_marginRight="20dp"
+            android:padding="10dp"
+            android:src="@drawable/baseline_play_arrow_24" />
 
-        <Button
+        <ImageButton
             android:id="@+id/stop"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Stop" />
+            android:background="#423B3B"
+            android:layout_marginLeft="20dp"
+            android:padding="10dp"
+            android:src="@drawable/baseline_stop_24" />
+    </TableRow>
 
-        <Button
-            android:id="@+id/pause"
+    <TableRow
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:layout_marginTop="50dp">
+
+        <ImageButton
+            android:id="@+id/emergency"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Pause" />
-    </LinearLayout>
+            android:background="#423B3B"
+            android:layout_marginRight="20dp"
+            android:padding="10dp"
+            android:src="@drawable/baseline_front_hand_24" />
 
-</LinearLayout>
+        <ImageButton
+            android:id="@+id/reset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="#423B3B"
+            android:layout_marginLeft="20dp"
+            android:padding="10dp"
+            android:src="@drawable/baseline_restart_alt_24" />
+    </TableRow>
+
+</TableLayout>

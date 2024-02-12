@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 
@@ -32,46 +33,17 @@ import de.drazil.archerytimer.udp.Sender;
  */
 public class TournamentFragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
+    private boolean start=true;
 
     public TournamentFragment() {
 
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment TournamentFragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static TournamentFragment newInstance(String param1, String param2) {
-        TournamentFragment fragment = new TournamentFragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
     }
 
     @Override
@@ -89,15 +61,21 @@ public class TournamentFragment extends Fragment {
         View rootView = inflater.inflate(R.layout.fragment_tournament, container, false);
 
 
-        Button startButton = (Button) rootView.findViewById(R.id.start);
+        ImageButton startButton = (ImageButton) rootView.findViewById(R.id.start);
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
-
-                String command = String.format("!start:%s:%s:%s!", "AB",
+                String command = String.format("!%s:%s:%s:%s!", start?"start":"pause","AB",
                         String.valueOf(prepareTime), String.valueOf(actionTime));
-                System.out.println(command);
+                if(start){
+                    startButton.setImageResource(R.drawable.baseline_pause_24);
+
+                }else{
+                    startButton.setImageResource(R.drawable.baseline_play_arrow_24);
+
+                }
+                start=!start;
+
                 try {
                     Sender.broadcast(command);
                 } catch (Exception ex) {
@@ -107,11 +85,12 @@ public class TournamentFragment extends Fragment {
 
             }
         });
-        Button stopButton = (Button) rootView.findViewById(R.id.stop);
+        ImageButton stopButton = (ImageButton) rootView.findViewById(R.id.stop);
         stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
+                    startButton.setImageResource(R.drawable.baseline_play_arrow_24);
                     Sender.broadcast("!stop:0:0:0!");
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
@@ -120,12 +99,25 @@ public class TournamentFragment extends Fragment {
             }
         });
 
-        Button pauseButton = (Button) rootView.findViewById(R.id.pause);
-        pauseButton.setOnClickListener(new View.OnClickListener() {
+
+        ImageButton emergencyButton = (ImageButton) rootView.findViewById(R.id.emergency);
+        emergencyButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 try {
-                    Sender.broadcast("!break:0:0:0!");
+                    Sender.broadcast("!emergency:0:0:0!");
+                } catch (Exception ex) {
+                    Log.e("Error", ex.getMessage());
+                }
+            }
+        });
+
+        ImageButton resetButton = (ImageButton) rootView.findViewById(R.id.reset);
+        resetButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    Sender.broadcast("!reset:0:0:0!");
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
