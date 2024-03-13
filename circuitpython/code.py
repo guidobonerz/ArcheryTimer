@@ -1,4 +1,5 @@
 import sys
+import os
 import board
 import busio
 import time
@@ -15,11 +16,13 @@ import rgbmatrix
 import framebufferio
 import adafruit_display_text.label
 from adafruit_display_shapes.rect import Rect
+from adafruit_display_shapes.roundrect import RoundRect
 from adafruit_display_shapes.circle import Circle
 from adafruit_bitmap_font import bitmap_font
 from DFPlayer import DFPlayer
+# from DFPlayerPro import DFPlayerPro
 
-bit_depth = 3
+bit_depth = 2
 base_width = 64
 base_height = 64
 chain_across = 2
@@ -28,16 +31,12 @@ serpentine = True
 
 width = base_width * chain_across
 height = base_height * tile_down
-
 try:
-    dfplayer = DFPlayer(busio.UART(board.TX, board.RX,
-                        baudrate=9600), volume=50)
+    dfplayer = DFPlayer(busio.UART(
+        board.TX, board.RX, baudrate=9600), volume=30)
+    dfplayer.play(track=4)
 except:
     print("player failed")
-
-
-dfplayer.play(track=4)
-
 
 addr_pins = [board.MTX_ADDRA, board.MTX_ADDRB,
              board.MTX_ADDRC, board.MTX_ADDRD, board.MTX_ADDRE]
@@ -69,7 +68,6 @@ matrix = rgbmatrix.RGBMatrix(
 display = framebufferio.FramebufferDisplay(matrix, auto_refresh=False)
 seg7Font = bitmap_font.load_font("/Digital-7Mono-65.bdf")
 abcdFont = bitmap_font.load_font("/UpheavalTT-BRK--20.bdf")
-
 
 counterLine = adafruit_display_text.label.Label(
     seg7Font,
@@ -104,12 +102,18 @@ player2.y = 48
 
 pauseInfo = adafruit_display_text.label.Label(
     abcdFont,
-    color=0x5dade2,
+    color=0xf39c12,
     scale=2,
     text="PAUSE")
-pauseInfo.x = 40
-pauseInfo.y = 20
+pauseInfo.x = 5
+pauseInfo.y = 24
+pauseBackground = RoundRect(
+    0, 15, 128, 30, 2, fill=0x000000, outline=0x505050, stroke=2)
 
+pauseGroup = displayio.Group()
+pauseGroup.append(pauseBackground)
+pauseGroup.append(pauseInfo)
+pauseGroup.hidden = True
 
 trafficLight = Rect(0, 0, 43, 64, fill=0xff0000)
 
@@ -120,7 +124,23 @@ tournamentGroup.append(player1)
 tournamentGroup.append(passText)
 tournamentGroup.append(player2)
 tournamentGroup.append(trafficLight)
+tournamentGroup.append(pauseGroup)
 
+
+setup = adafruit_display_text.label.Label(
+    abcdFont,
+    color=0xf39c12,
+    scale=2,
+    text="SETUP")
+setup.x = 5
+setup.y = 24
+setupBackground = RoundRect(
+    0, 15, 128, 30, 2, fill=0x000000, outline=0x505050, stroke=2)
+
+setupGroup = displayio.Group()
+setupGroup.hidden = False
+setupGroup.append(setupBackground)
+setupGroup.append(setup)
 
 logoImage = displayio.OnDiskBitmap(open("/logo_small.bmp", "rb"))
 logoTile = displayio.TileGrid(
@@ -130,6 +150,7 @@ logoTile = displayio.TileGrid(
     tile_width=logoImage.width,
     tile_height=logoImage.height
 )
+
 
 mainLine1 = adafruit_display_text.label.Label(
     terminalio.FONT,
@@ -215,12 +236,6 @@ sysGroup = displayio.Group()
 sysGroup.hidden = False
 sysGroup.append(targetTile1)
 sysGroup.append(targetTile2)
-# sysGroup.append(ball3)
-
-
-display.root_group = mainGroup
-display.auto_refresh = True
-
 
 print("Connecting to WiFi...")
 print("my IP addr:", wifi.radio.ipv4_address)
@@ -228,104 +243,172 @@ pool = socketpool.SocketPool(wifi.radio)
 
 udp_host = str(wifi.radio.ipv4_address)
 udp_port = 5005
-# udp_buffer = bytearray(100)
-
 
 sock = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
 sock.bind((udp_host, udp_port))
 sock.settimeout(0)
-# pattern = re.compile(r'!([a-z]+)(:([A-D\-0]*))?(:([0-9]*))?(:([0-9]*))?!')
-pattern = re.compile(r'(archery_timer)!(.*)')
+
+
+try:
+    pool = socketpool.SocketPool(wifi.radio)
+    ntp = adafruit_ntp.NTP(pool, tz_offset=1)
+    i2c = board.I2C()
+    rtc = adafruit_ds3231.DS3231(i2c)
+    rtc.datetime = ntp.datetime
+except:
+    print("unable to sync time")
+
+pattern = re.compile(r'(archery_timer_control)!(.*)')
 signalColors = [0xffffff, 0xf4d03f, 0xff0000, 0x00ff00]
 
 
-UNKOWN = -1
-MAIN_VIEW = 0
-PREPARE = 10
-START_STOP = 20
-PAUSE = 30
-BREAK = 40
-SYNC_TIME = 50
-TOURNAMENT_VIEW = 60
-RELAX_VIEW = 70
+MAIN_VIEW = 10
+TOURNAMENT_VIEW = 20
+SETUP_VIEW = 30
+RELAX_VIEW = 40
 
-action = SYNC_TIME
+view = MAIN_VIEW
 
-preparePhase = False
-runPhase = False
-pausePhase = False
+PHASE_RUN = 10
+PHASE_STOP = 20
+PHASE_IDLE = -1
+
+phase = PHASE_IDLE
+
+isMaster = os.getenv("IS_MASTER") == "1"
+displayNo = int(os.getenv("DISPLAY_NO"))
+
+firstNumber = True
+prepare = False
+pause = False
+
 setRemainingTime = False
 remainingTime = 0
-prepareTimer = 0
+_prepareTimer = 0
+_actionTimer = 0
 timer = 0
 participantGroups = 1
 currentParticipantGroup = 1
 passe = 0
 currentTime = 0
 targetTime = 0
-firstNumber = True
 direction = 1
 actionCount = 0
 
+signalVolume = 30
+
 
 def showMainView():
+    global view
+    view = MAIN_VIEW
     display.root_group = mainGroup
     display.auto_refresh = True
 
+
+def showTournamentView():
+    global view
+    view = TOURNAMENT_VIEW
+    display.root_group = tournamentGroup
+    display.auto_refresh = True
+
+
+def showSetupView():
+    global view
+    view = SETUP_VIEW
+    display.root_group = setupGroup
+    display.auto_refresh = True
+
+
+def showRelaxView():
+    global view
+    view = RELAX_VIEW
+    display.root_group = sysGroup
+
+
+def sendResponse(command, displayNo, isMaster, values=None):
+    if isMaster:
+        if (values):
+            jsonPayload = {"name": command,
+                           "displayNo": displayNo,
+                           "values": values}
+            udp_command = f"archery_timer_display!{json.dumps(jsonPayload)}"
+            sock.sendto(udp_command, ("255.255.255.255", udp_port))
+        else:
+            jsonPayload = {"name": command,
+                           "displayNo": displayNo}
+            udp_command = f"archery_timer_display!{json.dumps(jsonPayload)}"
+            sock.sendto(udp_command, ("255.255.255.255", udp_port))
+
+
+def sendStatus(displayNo, isMaster, passeCurrent, prepareCurrent, actionCurrent):
+    if isMaster:
+        s = f"status:{displayNo}:{passeCurrent}:{prepareCurrent}:{
+            actionCurrent}"
+        
+        sock.sendto(s, ("255.255.255.255", udp_port))
+        
+        
+        
+        
+
+
+showMainView()
+
 while True:
     try:
-        udp_buffer = bytearray(100)
-        size, addr = sock.recvfrom_into(udp_buffer)
-        msg = udp_buffer.decode('utf-8')
+        udp_receivebuffer = bytearray(200)
+        size, addr = sock.recvfrom_into(udp_receivebuffer)
+        msg = udp_receivebuffer[:size].decode('utf-8')
         groups = pattern.match(msg)
         payload = groups.group(2)
         control = json.loads(payload)
         command = control["name"]
-        if command == "home" and not runPhase:
-            action = MAIN_VIEW
+        if command == "home" and phase == PHASE_IDLE:
             showMainView()
-        elif command == "tournament" and not runPhase:
-            dfplayer.set_volume(100)
-            counterLine.text = "{:3d}".format(prepareTimer)
-            display.root_group = tournamentGroup
-            display.auto_refresh = True
-            action = TOURNAMENT_VIEW
-        elif command == "prepare" and not runPhase:
-            prepareTimer = control["values"]["prepareTime"]
-            timer = control["values"]["actionTime"]
+        elif command == "tournament" and phase == PHASE_IDLE:
+            dfplayer.set_volume(signalVolume)
+            counterLine.text = "{:3d}".format(timer)
+            showTournamentView()
+        elif command == "setup" and phase == PHASE_IDLE:
+            showSetupView()
+        elif command == "prepare" and phase == PHASE_IDLE:
+            _prepareTimer = control["values"]["prepareTime"]
+            _actionTimer = control["values"]["actionTime"]
             mode = control["values"]["mode"]
-        elif command == "relax" and not runPhase:
-            action = RELAX_VIEW
-            display.root_group = sysGroup
-            display.auto_refresh = True
-        elif command == "start" and action != MAIN_VIEW and action != RELAX_VIEW:
-            if not runPhase:
+        elif command == "relax" and phase == PHASE_IDLE:
+            showRelaxView()
+        elif command == "start" and view == TOURNAMENT_VIEW:
+            if phase == PHASE_IDLE:
                 if mode == "ABCD":
                     participantGroups = 2
                 else:
                     participantGroups = 1
-                action = START_STOP
-                runPhase = True
-                preparePhase = True
+
+                phase = PHASE_RUN
+                prepare = True
                 firstNumber = True
+                sendResponse("start_stop_toggle", displayNo, isMaster)
             else:
-                pausePhase = not pausePhase
-        elif command == "pause" and action != MAIN_VIEW and action != RELAX_VIEW and runPhase:
-            action = START_STOP
-            pausePhase = True
-        elif command == "stop" and action != MAIN_VIEW and action != RELAX_VIEW and runPhase:
-            action = START_STOP
-            pausePhase = False
-            runPhase = False
-            preparePhase = False
-        elif command == "reset" and action != MAIN_VIEW and action != RELAX_VIEW:
-            action = MAIN_VIEW
-            preparePhase = False
-            runPhase = False
-            pausePhase = False
+                pause = not pause
+                sendResponse("start_stop_toggle", displayNo, isMaster)
+        elif command == "pause" and view == TOURNAMENT_VIEW and phase == PHASE_RUN:
+            pause = True
+            sendResponse("start_stop_toggle", displayNo, isMaster)
+        elif command == "stop" and view == TOURNAMENT_VIEW and phase == PHASE_RUN:
+            pause = False
+            prepare = False
+            phase = PHASE_STOP
+        elif command == "emergency" and view == TOURNAMENT_VIEW and phase == PHASE_RUN:
+            pause = False
+            prepare = False
+            phase = PHASE_STOP
+            sendResponse("emergency", displayNo, isMaster)
+        elif command == "reset" and view == TOURNAMENT_VIEW and phase == PHASE_IDLE:
+            prepare = False
+            phase = PHASE_IDLE
+            pause = False
             timeDiff = 0
-            prepareTimer = 0
-            timer = 0
+            timer = _prepareTimer
             participantGroups = 1
             currentParticipantGroup = 1
             passe = 0
@@ -334,38 +417,33 @@ while True:
             firstNumber = True
             direction = 1
             actionCount = 0
-            showMainView()
+            player1.text = "A"
+            player2.text = "B"
+            passText.text = "{:02d}".format(passe)
+            counterLine.text = "{:3d}".format(_prepareTimer)
+            sendResponse("reset", displayNo, isMaster)
         elif command == "volume":
-            dfplayer.set_volume(control["values"]["value"])
-        elif command == "testsignal" and action == TOURNAMENT_VIEW:
+            signalVolume = control["values"]["value"]
+            dfplayer.set_volume(signalVolume)
+        elif command == "testsignal" and view == SETUP_VIEW:
             dfplayer.play(track=3)
         else:
             pass
     except:
         isTimeout = True
-    if action == SYNC_TIME and not runPhase:
-        try:
-            pool = socketpool.SocketPool(wifi.radio)
-            ntp = adafruit_ntp.NTP(pool, tz_offset=1)
-            i2c = board.I2C()
-            rtc = adafruit_ds3231.DS3231(i2c)
-            rtc.datetime = ntp.datetime
-        except:
-            print("unable to sync time")
 
-        action = MAIN_VIEW
-    if action == MAIN_VIEW and not runPhase:
+    if view == MAIN_VIEW:
         dateText = "{:02d}:{:02d}:{:02d}".format(
             rtc.datetime_register.tm_hour, rtc.datetime_register.tm_min, rtc.datetime_register.tm_sec)
-        timeText = "{:02d}:{:02d}:{:02d}".format(
+        timeText = "{:02d}.{:02d}.{:02d}".format(
             rtc.datetime_register.tm_mday, rtc.datetime_register.tm_mon, rtc.datetime_register.tm_year)
         mainLine4.text = dateText
         mainLine5.text = timeText
-    elif action == RELAX_VIEW and not runPhase:
+    elif view == RELAX_VIEW:
         if firstNumber:
             targetTime = supervisor.ticks_ms()+5
             firstNumber = False
-        if supervisor.ticks_ms() > targetTime:
+        if supervisor.ticks_ms() >= targetTime:
             targetTime = supervisor.ticks_ms()+5
             firstNumber = True
             targetTile1.x = targetTile1.x+xdir1
@@ -381,18 +459,19 @@ while True:
                 xdir2 = xdir2*-1
             if targetTile2.y < 1 or targetTile2.y > 24:
                 ydir2 = ydir2*-1
-    elif action == START_STOP:
-        if runPhase:
-            if not pausePhase:
+    elif view == TOURNAMENT_VIEW:
+        if phase == PHASE_RUN:
+            if not pause:
+                pauseGroup.hidden = True
                 setRemainingTime = False
-                if preparePhase:
+                if prepare:
                     if firstNumber:
+                        timer = _prepareTimer
                         if actionCount % participantGroups == 0:
                             passe = passe+1
                         dfplayer.play(track=1)
                         trafficLight.fill = 0xff0000
-                        targetTime = supervisor.ticks_ms()+1000
-                        tv = "{:3d}".format(prepareTimer)
+                        tv = "{:3d}".format(timer)
                         passText.text = "{:02d}".format(passe)
                         counterLine.color = signalColors[0]
                         counterLine.text = tv
@@ -403,47 +482,61 @@ while True:
                             player1.text = "C"
                             player2.text = "D"
                         firstNumber = False
-                    if supervisor.ticks_ms() > targetTime:
+                      
+                        time.sleep(1)
                         targetTime = supervisor.ticks_ms()+1000
-                        prepareTimer = prepareTimer-1
-                        tv = "{:3d}".format(prepareTimer)
-                        counterLine.text = tv
-                        passText.text = "{:02d}".format(passe)
-                        if prepareTimer == 0:
-                            preparePhase = False
-                            firstNumber = True
-                            time.sleep(1)
-                else:  # start phase
-                    if timer <= 30:
-                        trafficLight.fill = 0xf1c40f
                     else:
-                        trafficLight.fill = 0x00ff00
+                        if supervisor.ticks_ms() >= targetTime:
+                            targetTime = supervisor.ticks_ms()+1000
+                            sendStatus(displayNo, isMaster,
+                                       passe, timer, _actionTimer)
+                            timer = timer-1
+
+                            if timer < 0:
+                                prepare = False
+                                firstNumber = True
+                                timer = _actionTimer
+                                dfplayer.play(track=3)
+                            else:
+                                tv = "{:3d}".format(timer)
+                                counterLine.text = tv
+
+                else:  # action phase
                     if firstNumber:
-                        dfplayer.play(track=2)
-                        targetTime = supervisor.ticks_ms()+1000
+                        if timer <= 30:
+                            trafficLight.fill = 0xf1c40f
+                        else:
+                            trafficLight.fill = 0x00ff00
                         tv = "{:3d}".format(timer)
                         passText.text = "{:02d}".format(passe)
                         counterLine.color = signalColors[0]
                         counterLine.text = tv
                         firstNumber = False
-                    if supervisor.ticks_ms() > targetTime:
+                       
+                        time.sleep(1)
                         targetTime = supervisor.ticks_ms()+1000
-                        timer = timer-1
-                        tv = "{:3d}".format(timer)
-                        passText.text = "{:02d}".format(passe)
-                        counterLine.text = tv
-                        if timer == 0:
-                            runPhase = False
+                    else:
+                        if supervisor.ticks_ms() >= targetTime:
+                            targetTime = supervisor.ticks_ms()+1000
+                            timer = timer-1
+                            tv = "{:3d}".format(timer)
+                            counterLine.text = tv
+                            if timer == 0:
+                                phase = PHASE_STOP
+                            sendStatus(displayNo, isMaster,
+                                       passe, 0, timer)
             else:
+                pauseGroup.hidden = False
                 if not setRemainingTime:
                     remainingTime = targetTime - supervisor.ticks_ms()
                     setRemainingTime = True
                 targetTime = supervisor.ticks_ms()+remainingTime
-                print("pause")
-        if not runPhase:  # stop phase
+
+        elif phase == PHASE_STOP:  # stop phase
             trafficLight.fill = 0xff0000
-            dfplayer.play(track=3)
+            dfplayer.play(track=2)
             actionCount = actionCount+1
+            phase = PHASE_IDLE
             if participantGroups == 2:
                 currentParticipantGroup = currentParticipantGroup+direction
                 if currentParticipantGroup > 2:
@@ -452,6 +545,8 @@ while True:
                     currentParticipantGroup = 1
                 if actionCount % 2 == 0:
                     direction = direction*-1
-            action = TOURNAMENT_VIEW
+            sendResponse("stop", displayNo, isMaster)
+        else:
+            pass
     else:
         pass
