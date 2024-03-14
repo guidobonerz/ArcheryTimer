@@ -6,30 +6,56 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#000000"
+    android:foregroundTint="#FFFFFF"
     android:orientation="vertical"
     android:padding="16dp"
     tools:context=".SettingsFragment">
 
-
-    <RadioGroup
-        android:id="@+id/modeGroup"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="66dp"
-        android:orientation="horizontal">
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingTop="30dp">
 
-        <RadioButton
-            android:id="@+id/modeAB"
-            android:layout_width="100dp"
-            android:layout_height="wrap_content"
-            android:checked="true"
-            android:text="AB" />
+        <TextView
+            android:id="@+id/textView"
+            android:layout_width="wrap_content"
+            android:layout_height="66dp"
+            android:text="Gruppen" />
 
-        <RadioButton
-            android:id="@+id/modeABCD"
-            android:layout_width="100dp"
-            android:layout_height="wrap_content"
-            android:text="ABCD" />
-    </RadioGroup>
+        <RadioGroup
+            android:id="@+id/modeGroup"
+            android:layout_width="wrap_content"
+            android:layout_height="66dp"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/modeAB"
+                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:button="@null"
+                android:checked="true"
+                android:drawableStart="@drawable/custom_btn_radio"
+                android:drawablePadding="10dp"
+                android:gravity="center_vertical"
+                android:text="AB" />
+
+            <RadioButton
+                android:id="@+id/modeABCD"
+                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+                android:layout_width="100dp"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:button="@null"
+                android:drawableStart="@drawable/custom_btn_radio"
+                android:drawablePadding="10dp"
+                android:gravity="center_vertical"
+                android:text="ABCD" />
+        </RadioGroup>
+    </LinearLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
@@ -41,20 +67,25 @@
             android:id="@+id/arrowCount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="number" />
+            android:inputType="number"
+            android:outlineAmbientShadowColor="#FFFFFF"
+            android:textColor="#FFFFFF"
+            android:textColorHighlight="#FFFFFF" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Anzahl Passen">
+        android:hint="Anzahl Passen"
+        android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/passesCount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="number" />
+            android:inputType="number"
+            android:textColorHighlight="#FFFFFF" />
     </com.google.android.material.textfield.TextInputLayout>
 
 
@@ -62,7 +93,8 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Vorbereitungszeit/Sek.">
+        android:hint="Vorbereitungszeit/Sek."
+        android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/prepareTime"
@@ -75,7 +107,8 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Zeit pro Pfeil/Sek.">
+        android:hint="Zeit pro Pfeil/Sek."
+        android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/arrowTime"
@@ -90,7 +123,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:enabled="true"
-        android:hint="Zeit pro Passe/Sek.">
+        android:hint="Zeit pro Passe/Sek."
+        android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/actionTime"
@@ -107,7 +141,7 @@
 
         <TextView
             android:id="@+id/textView3"
-            android:layout_width="178dp"
+            android:layout_width="72dp"
             android:layout_height="60dp"
             android:layout_weight="1"
             android:gravity="center_vertical"
@@ -115,12 +149,26 @@
 
         <com.google.android.material.slider.Slider
             android:id="@+id/volumeSlider"
-            android:layout_width="match_parent"
+            android:layout_width="209dp"
             android:layout_height="35dp"
             android:layout_weight="1"
             android:paddingTop="20dp"
             android:paddingBottom="20dp"
-            android:text="50" />
+            android:text="50"
+            app:thumbColor="#03A9F4"
+            app:thumbStrokeColor="#2196F3"
+            app:trackColorActive="#2196F3"
+            app:trackColorInactive="#3F51B5" />
+
+        <ImageButton
+            android:id="@+id/testSignal"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_weight="1"
+            android:backgroundTint="#000000"
+            android:gravity="center_vertical"
+            android:src="@drawable/baseline_campaign_50"
+            app:tint="#03A9F4" />
     </LinearLayout>
 
 </LinearLayout>

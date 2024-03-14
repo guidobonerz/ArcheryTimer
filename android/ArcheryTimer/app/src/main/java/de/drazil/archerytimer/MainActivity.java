@@ -10,6 +10,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 
 import de.drazil.archerytimer.databinding.ActivityMainBinding;
+import de.drazil.archerytimer.udp.UDPServer;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -19,18 +20,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
-        //setContentView(R.layout.activity_main);
         setContentView(binding.getRoot());
 
         SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(getString(R.string.modeStore), "AB");
         editor.putInt(getString(R.string.passesCountStore), 1);
-        editor.putFloat(getString(R.string.volumeStore), 0.5f);
+        editor.putFloat(getString(R.string.volumeStore), 0.3f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);
+        editor.putInt(getString(R.string.warnTimeStore), 30);
         editor.putInt(getString(R.string.prepareTimeStore), 10);
         editor.apply();
+        UDPServer.start();
 
 
         if (savedInstanceState == null) {

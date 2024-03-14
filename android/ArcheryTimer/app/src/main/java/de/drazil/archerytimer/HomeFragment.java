@@ -40,7 +40,7 @@ public class HomeFragment extends Fragment {
         JSONObject payload = new JSONObject();
         try {
             payload.put("name", "home");
-            Sender.broadcastJSON(payload.toString());
+            Sender.broadcastJSON(payload);
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }

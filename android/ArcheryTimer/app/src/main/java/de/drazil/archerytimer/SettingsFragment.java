@@ -14,6 +14,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 
@@ -48,8 +49,8 @@ public class SettingsFragment extends Fragment {
                              Bundle savedInstanceState) {
         JSONObject payload = new JSONObject();
         try {
-            payload.put("name", "tournament");
-            Sender.broadcastJSON(payload.toString());
+            payload.put("name", "setup");
+            Sender.broadcastJSON(payload);
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }
@@ -61,25 +62,53 @@ public class SettingsFragment extends Fragment {
 
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
         radioGroup = (RadioGroup) view.findViewById(R.id.modeGroup);
-
-        RadioButton aButton = (RadioButton) view.findViewById(R.id.modeAB);
-        aButton.setOnClickListener(new View.OnClickListener() {
+        radioGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
-            public void onClick(View _view) {
+            public void onCheckedChanged(RadioGroup radioGroup, int i) {
                 calcActionTime(view, sharedPreferences);
             }
         });
-        RadioButton bButton = (RadioButton) view.findViewById(R.id.modeABCD);
-        bButton.setOnClickListener(new View.OnClickListener() {
+
+
+        ImageButton testSignalButton = (ImageButton) view.findViewById(R.id.testSignal);
+        testSignalButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View _view) {
-                calcActionTime(view, sharedPreferences);
+                try {
+                    JSONObject payload = new JSONObject();
+                    payload.put("name", "testsignal");
+                    Sender.broadcastJSON(payload);
+                } catch (Exception ex) {
+                    Log.e("Error", ex.getMessage());
+                }
+                ;
             }
         });
 
         final EditText passesCountView = (EditText) view.findViewById(R.id.passesCount);
         int v1 = sharedPreferences.getInt(getString(R.string.passesCountStore), 0);
         passesCountView.setText(String.valueOf(v1));
+        passesCountView.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                String value = "0";
+                if (charSequence.length() > 0) {
+                    value = passesCountView.getText().toString();
+                }
+                calcActionTime(view, sharedPreferences);
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.passesCountStore), Integer.valueOf(value));
+                editor.apply();
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
 
         final Slider volumeSelectorView = (Slider) view.findViewById(R.id.volumeSlider);
         volumeSelectorView.setValue(sharedPreferences.getFloat(getString(R.string.volumeStore), 0.5f));
@@ -107,7 +136,7 @@ public class SettingsFragment extends Fragment {
                     JSONObject payload = new JSONObject();
                     payload.put("name", "volume");
                     payload.put("values", valuesObject);
-                    Sender.broadcastJSON(payload.toString());
+                    Sender.broadcastJSON(payload);
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -155,7 +184,7 @@ public class SettingsFragment extends Fragment {
                 }
                 calcActionTime(view, sharedPreferences);
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.arrowCountStore), Integer.valueOf(value));
+                editor.putInt(getString(R.string.arrowTimeStore), Integer.valueOf(value));
                 editor.apply();
             }
 
@@ -225,7 +254,7 @@ public class SettingsFragment extends Fragment {
             JSONObject payload = new JSONObject();
             payload.put("name", "prepare");
             payload.put("values", valuesObject);
-            Sender.broadcastJSON(payload.toString());
+            Sender.broadcastJSON(payload);
 
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());

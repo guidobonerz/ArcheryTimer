@@ -45,7 +45,7 @@
         android:layout_marginTop="10dp"
         android:ems="10"
         android:inputType="text"
-        android:text="Alle ins Gold..."
+        android:text="Alle ins Gold"
         android:textAlignment="center"
         android:textColor="#FFC107"
         android:textSize="40sp" />
