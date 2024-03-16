@@ -21,8 +21,12 @@
         <TextView
             android:id="@+id/textView"
             android:layout_width="wrap_content"
-            android:layout_height="66dp"
-            android:text="Gruppen" />
+            android:layout_height="40dp"
+            android:layout_marginTop="7dp"
+            android:layout_marginRight="20dp"
+            android:text="Gruppen"
+            android:textSize="16sp"
+            android:textStyle="bold" />
 
         <RadioGroup
             android:id="@+id/modeGroup"
@@ -38,6 +42,8 @@
                 android:background="@null"
                 android:button="@null"
                 android:checked="true"
+                android:textSize="16sp"
+                android:textStyle="bold"
                 android:drawableStart="@drawable/custom_btn_radio"
                 android:drawablePadding="10dp"
                 android:gravity="center_vertical"
@@ -50,6 +56,8 @@
                 android:layout_height="wrap_content"
                 android:background="@null"
                 android:button="@null"
+                android:textSize="16sp"
+                android:textStyle="bold"
                 android:drawableStart="@drawable/custom_btn_radio"
                 android:drawablePadding="10dp"
                 android:gravity="center_vertical"

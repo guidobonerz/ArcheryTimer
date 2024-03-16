@@ -493,7 +493,6 @@ while True:
                             else:
                                 tv = "{:3d}".format(timer)
                                 counterLine.text = tv
-
                 else:  # action phase
                     if firstNumber:
                         if timer <= warnTime:
