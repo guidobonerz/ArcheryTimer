@@ -57,6 +57,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         private int actionColor = Color.rgb(0, 255, 0);
         private int warnColor = Color.rgb(241, 196, 15);
         private int separatorColor = Color.rgb(0, 0, 0);
+        private int groupSeparatorColor = Color.rgb(255, 255, 255);
         private int overlayColor = Color.argb(150, 0, 0, 0);
         private int borderColor = Color.rgb(120, 120, 120);
 
@@ -98,13 +99,23 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         }
 
         private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator) {
+            return drawSection(canvas, paint, offset, time, maxTime, maxWidth, height, color, showSeparator, false);
+        }
+
+        private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator, boolean groupSeparator) {
             int w = (int) Math.ceil((double) time / maxTime * maxWidth);
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(color);
             canvas.drawRect(offset, 0, offset + w, height, paint);
             if (showSeparator) {
-                paint.setColor(separatorColor);
-                paint.setStrokeWidth(6);
+                if (groupSeparator) {
+                    paint.setColor(groupSeparatorColor);
+                    paint.setStrokeWidth(8);
+                } else {
+                    paint.setColor(separatorColor);
+                    paint.setStrokeWidth(6);
+                }
+
                 canvas.drawLine(offset + w - 3, 0, offset + w - 3, height, paint);
             }
             return w;
@@ -135,10 +146,10 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
                 offset += drawSection(canvas, paint, offset, prepareTime, maxTime, width, height, prepareColor, true);
                 if (warnOnly) {
-                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, true);
+                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, true, true);
                 } else {
                     offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
-                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, true);
+                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, true, true);
                 }
                 offset += drawSection(canvas, paint, offset, prepareTime * mode, maxTime, width, height, prepareColor, true);
                 if (warnOnly) {
