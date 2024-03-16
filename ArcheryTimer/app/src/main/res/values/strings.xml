@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">ArcheryTimer</string>
+    <string name="home_blank_fragment">Hello blank fragment</string>
+    <string name="settings_blank_fragment">Hello blank fragment</string>
+    <string name="arrowCountStore">arrowCountStore</string>
+    <string name="passesCountStore">passesCountStore</string>
+    <string name="prepareTimeStore">prepareTimeStore</string>
+    <string name="arrowTimeStore">arrowTimeStore</string>
+    <string name="warnTimeStore">warnTimeStore</string>
+    <string name="actionTimeStore">actionTimeStore</string>
+    <string name="volumeStore">volumeStore</string>
+    <string name="modeStore">modeStore</string>
+    <string name="extendedAction">Nachschiessen</string>
+    <string name="arrow1">1 Pfeil</string>
+    <string name="arrow2">2 Pfeile</string>
+    <string name="arrow3">3 Pfeile</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="confirmExtendedAction">Wirklich nachschiessen?</string>
+
+</resources>

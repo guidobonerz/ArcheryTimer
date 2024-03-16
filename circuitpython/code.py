@@ -296,6 +296,8 @@ direction = 1
 actionCount = 0
 
 signalVolume = 30
+senderIp = ""
+groupCount = 0
 
 
 def showMainView():
@@ -326,6 +328,7 @@ def showRelaxView():
 
 
 def sendResponse(command, displayNo, isMaster, values=None):
+    global senderIp
     if isMaster:
         if (values):
             jsonPayload = {"name": command,
@@ -337,19 +340,14 @@ def sendResponse(command, displayNo, isMaster, values=None):
             jsonPayload = {"name": command,
                            "displayNo": displayNo}
             udp_command = f"archery_timer_display!{json.dumps(jsonPayload)}"
-            sock.sendto(udp_command, ("255.255.255.255", udp_port))
+            sock.sendto(udp_command, (senderIp, udp_port))
 
 
-def sendStatus(displayNo, isMaster, passeCurrent, prepareCurrent, actionCurrent):
+def sendStatus(displayNo, isMaster, groupCurrent, passCurrent, groupCount, prepareCurrent, actionCurrent):
     if isMaster:
-        s = f"status:{displayNo}:{passeCurrent}:{prepareCurrent}:{
-            actionCurrent}"
-        
-        sock.sendto(s, ("255.255.255.255", udp_port))
-        
-        
-        
-        
+        s = f"archery_timer_display!status:{groupCurrent}:{
+            passCurrent}:{groupCount}:{prepareCurrent}:{actionCurrent}"
+        sock.sendto(s, (senderIp, udp_port))
 
 
 showMainView()
@@ -363,6 +361,7 @@ while True:
         payload = groups.group(2)
         control = json.loads(payload)
         command = control["name"]
+        senderIp = control["ip"]
         if command == "home" and phase == PHASE_IDLE:
             showMainView()
         elif command == "tournament" and phase == PHASE_IDLE:
@@ -371,29 +370,22 @@ while True:
             showTournamentView()
         elif command == "setup" and phase == PHASE_IDLE:
             showSetupView()
-        elif command == "prepare" and phase == PHASE_IDLE:
+        elif command == "configure" and phase == PHASE_IDLE:
             _prepareTimer = control["values"]["prepareTime"]
             _actionTimer = control["values"]["actionTime"]
-            mode = control["values"]["mode"]
+            participantGroups = control["values"]["mode"]
         elif command == "relax" and phase == PHASE_IDLE:
             showRelaxView()
-        elif command == "start" and view == TOURNAMENT_VIEW:
+        elif command == "toggle_action" and view == TOURNAMENT_VIEW:
             if phase == PHASE_IDLE:
-                if mode == "ABCD":
-                    participantGroups = 2
-                else:
-                    participantGroups = 1
-
                 phase = PHASE_RUN
                 prepare = True
                 firstNumber = True
-                sendResponse("start_stop_toggle", displayNo, isMaster)
+                groupCount = 1
+                sendResponse("toggle_action", displayNo, isMaster)
             else:
                 pause = not pause
-                sendResponse("start_stop_toggle", displayNo, isMaster)
-        elif command == "pause" and view == TOURNAMENT_VIEW and phase == PHASE_RUN:
-            pause = True
-            sendResponse("start_stop_toggle", displayNo, isMaster)
+                sendResponse("toggle_action", displayNo, isMaster)
         elif command == "stop" and view == TOURNAMENT_VIEW and phase == PHASE_RUN:
             pause = False
             prepare = False
@@ -402,19 +394,19 @@ while True:
             pause = False
             prepare = False
             phase = PHASE_STOP
-            sendResponse("emergency", displayNo, isMaster)
+            # sendResponse("emergency", displayNo, isMaster)
         elif command == "reset" and view == TOURNAMENT_VIEW and phase == PHASE_IDLE:
-            prepare = False
             phase = PHASE_IDLE
+            prepare = True
             pause = False
+            firstNumber = True
             timeDiff = 0
             timer = _prepareTimer
-            participantGroups = 1
             currentParticipantGroup = 1
             passe = 0
+            groupCount = 1
             currentTime = 0
             targetTime = 0
-            firstNumber = True
             direction = 1
             actionCount = 0
             player1.text = "A"
@@ -466,7 +458,7 @@ while True:
                 setRemainingTime = False
                 if prepare:
                     if firstNumber:
-                        timer = _prepareTimer
+                        timer = _prepareTimer*groupCount
                         if actionCount % participantGroups == 0:
                             passe = passe+1
                         dfplayer.play(track=1)
@@ -482,14 +474,13 @@ while True:
                             player1.text = "C"
                             player2.text = "D"
                         firstNumber = False
-                      
                         time.sleep(1)
                         targetTime = supervisor.ticks_ms()+1000
                     else:
                         if supervisor.ticks_ms() >= targetTime:
                             targetTime = supervisor.ticks_ms()+1000
-                            sendStatus(displayNo, isMaster,
-                                       passe, timer, _actionTimer)
+                            sendStatus(displayNo, isMaster, currentParticipantGroup,
+                                       passe, groupCount, timer, _actionTimer)
                             timer = timer-1
 
                             if timer < 0:
@@ -512,19 +503,23 @@ while True:
                         counterLine.color = signalColors[0]
                         counterLine.text = tv
                         firstNumber = False
-                       
                         time.sleep(1)
                         targetTime = supervisor.ticks_ms()+1000
                     else:
                         if supervisor.ticks_ms() >= targetTime:
+                            if timer <= 30:
+                                trafficLight.fill = 0xf1c40f
+                            else:
+                                trafficLight.fill = 0x00ff00
                             targetTime = supervisor.ticks_ms()+1000
                             timer = timer-1
                             tv = "{:3d}".format(timer)
                             counterLine.text = tv
                             if timer == 0:
                                 phase = PHASE_STOP
-                            sendStatus(displayNo, isMaster,
-                                       passe, 0, timer)
+                            sendStatus(
+                                displayNo, isMaster, currentParticipantGroup, passe, groupCount, 0, timer)
+
             else:
                 pauseGroup.hidden = False
                 if not setRemainingTime:
@@ -534,9 +529,7 @@ while True:
 
         elif phase == PHASE_STOP:  # stop phase
             trafficLight.fill = 0xff0000
-            dfplayer.play(track=2)
             actionCount = actionCount+1
-            phase = PHASE_IDLE
             if participantGroups == 2:
                 currentParticipantGroup = currentParticipantGroup+direction
                 if currentParticipantGroup > 2:
@@ -545,7 +538,18 @@ while True:
                     currentParticipantGroup = 1
                 if actionCount % 2 == 0:
                     direction = direction*-1
-            sendResponse("stop", displayNo, isMaster)
+     
+            if (participantGroups == 2 and groupCount == participantGroups):
+                sendResponse("stop", displayNo, isMaster)
+                phase = PHASE_IDLE
+                dfplayer.play(track=2)
+                groupCount = 1
+            else:
+                phase = PHASE_RUN
+                dfplayer.play(track=3)
+                prepare = True
+                firstNumber = True
+                groupCount += 1
         else:
             pass
     else:
