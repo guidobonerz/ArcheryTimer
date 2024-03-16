@@ -16,7 +16,7 @@
         android:text="@string/title1Text"
         android:textAlignment="center"
         android:textColor="#4CAF50"
-        android:textSize="50sp"
+        android:textSize="45sp"
         android:textStyle="bold" />
 
     <TextView
@@ -28,7 +28,7 @@
         android:text="@string/title2Text"
         android:textAlignment="center"
         android:textColor="#4CAF50"
-        android:textSize="50sp"
+        android:textSize="45sp"
         android:textStyle="bold" />
 
 
