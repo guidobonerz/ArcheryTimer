@@ -32,6 +32,8 @@ import de.drazil.archerytimer.udp.Sender;
 public class SettingsFragment extends Fragment {
 
     private RadioGroup radioGroup = null;
+    private RadioButton group1 = null;
+    private RadioButton group2 = null;
 
     public SettingsFragment() {
         // Required empty public constructor
@@ -61,11 +63,29 @@ public class SettingsFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+
+
         radioGroup = (RadioGroup) view.findViewById(R.id.modeGroup);
+        group1 = (RadioButton) view.findViewById(R.id.modeAB);
+        group2 = (RadioButton) view.findViewById(R.id.modeABCD);
+        if (sharedPreferences.getInt(getString(R.string.modeStore), 0) == 1) {
+            group1.setChecked(true);
+            group2.setChecked(false);
+        } else {
+            group1.setChecked(false);
+            group2.setChecked(true);
+        }
+
         radioGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int i) {
-                calcActionTime(view, sharedPreferences);
+                int selectedId = radioGroup.getCheckedRadioButtonId();
+                RadioButton radioButton = (RadioButton) radioGroup.findViewById(selectedId);
+                String mode = radioButton.getText().toString();
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.modeStore), mode.equals("AB") ? 1 : 2);
+                editor.apply();
+                setActionTime(view, calcActionTime(sharedPreferences));
             }
         });
 
@@ -81,7 +101,6 @@ public class SettingsFragment extends Fragment {
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
-                ;
             }
         });
 
@@ -95,14 +114,14 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                String value = "0";
+                int value = 0;
                 if (charSequence.length() > 0) {
-                    value = passesCountView.getText().toString();
+                    value = Integer.valueOf(passesCountView.getText().toString());
                 }
-                calcActionTime(view, sharedPreferences);
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.passesCountStore), Integer.valueOf(value));
+                editor.putInt(getString(R.string.passesCountStore), value);
                 editor.apply();
+                setActionTime(view, calcActionTime(sharedPreferences));
             }
 
             @Override
@@ -154,14 +173,16 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                String value = "0";
+                int value = 0;
                 if (charSequence.length() > 0) {
-                    value = prepareTimeView.getText().toString();
+                    value = Integer.valueOf(prepareTimeView.getText().toString());
                 }
-                calcActionTime(view, sharedPreferences);
+
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.prepareTimeStore), Integer.valueOf(value));
+                editor.putInt(getString(R.string.prepareTimeStore), value);
                 editor.apply();
+
+                setActionTime(view, calcActionTime(sharedPreferences));
             }
 
             @Override
@@ -178,14 +199,16 @@ public class SettingsFragment extends Fragment {
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                String value = "0";
+                int value = 0;
                 if (charSequence.length() > 0) {
-                    value = arrowTimeView.getText().toString();
+                    value = Integer.valueOf(arrowTimeView.getText().toString());
                 }
-                calcActionTime(view, sharedPreferences);
+
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.arrowTimeStore), Integer.valueOf(value));
+                editor.putInt(getString(R.string.arrowTimeStore), value);
                 editor.apply();
+
+                setActionTime(view, calcActionTime(sharedPreferences));
             }
 
             @Override
@@ -204,14 +227,14 @@ public class SettingsFragment extends Fragment {
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
-                String value = "0";
+                int value = 0;
                 if (charSequence.length() > 0) {
-                    value = arrowCountView.getText().toString();
+                    value = Integer.valueOf(arrowCountView.getText().toString());
                 }
-                calcActionTime(view, sharedPreferences);
                 SharedPreferences.Editor editor = sharedPreferences.edit();
-                editor.putInt(getString(R.string.arrowCountStore), Integer.valueOf(value));
+                editor.putInt(getString(R.string.arrowCountStore), value);
                 editor.apply();
+                setActionTime(view, calcActionTime(sharedPreferences));
             }
 
             @Override
@@ -219,45 +242,67 @@ public class SettingsFragment extends Fragment {
 
             }
         });
-        calcActionTime(view, sharedPreferences);
 
+        final EditText warnTimeView = (EditText) view.findViewById(R.id.warnTime);
+        warnTimeView.setText(String.valueOf(sharedPreferences.getInt(getString(R.string.warnTimeStore), 0)));
+        warnTimeView.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
 
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+                int value = 0;
+                if (charSequence.length() > 0) {
+                    value = Integer.valueOf(warnTimeView.getText().toString());
+                }
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.warnTimeStore), value);
+                editor.apply();
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+
+            }
+        });
+
+        setActionTime(view, calcActionTime(sharedPreferences));
     }
 
-    private void calcActionTime(View rootView, SharedPreferences sharedPreferences) {
+    private void setActionTime(View view, int actionTime) {
+        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        final EditText actionTimeView = (EditText) view.findViewById(R.id.actionTime);
+        actionTimeView.setText(String.valueOf(actionTime));
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt(getString(R.string.actionTimeStore), actionTime);
+        editor.apply();
+    }
+
+    private int calcActionTime(SharedPreferences sharedPreferences) {
+        int actionTime = sharedPreferences.getInt(getString(R.string.arrowTimeStore), 0) * sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
+        int prepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0);
+        int warnTime = sharedPreferences.getInt(getString(R.string.warnTimeStore), 0);
+        int mode = sharedPreferences.getInt(getString(R.string.modeStore), 1);
+        int passes = sharedPreferences.getInt(getString(R.string.passesCountStore), 1);
         try {
-
-
-            final EditText arrowTimeView = (EditText) rootView.findViewById(R.id.arrowTime);
-            final EditText arrowAmountView = (EditText) rootView.findViewById(R.id.arrowCount);
-            final EditText actionTimeView = (EditText) rootView.findViewById(R.id.actionTime);
-            final EditText prepareTimeView = (EditText) rootView.findViewById(R.id.prepareTime);
-            String prepareTime = prepareTimeView.getText().toString();
-            String arrowTime = arrowTimeView.getText().toString();
-            String arrowCount = arrowAmountView.getText().toString();
-            int prepareTimeValue = null == prepareTime || prepareTime.equals("") ? 0 : Integer.valueOf(prepareTime);
-            int arrowTimeValue = null == arrowTime || arrowTime.equals("") ? 0 : Integer.valueOf(arrowTime);
-            int arrowCountValue = null == arrowCount || arrowCount.equals("") ? 0 : Integer.valueOf(arrowCount);
-            int actionTime = arrowTimeValue * arrowCountValue;
-            actionTimeView.setText(String.valueOf(actionTime));
-            SharedPreferences.Editor editor = sharedPreferences.edit();
-            editor.putInt(getString(R.string.actionTimeStore), actionTime);
-            editor.apply();
-
-
-            int selectedId = radioGroup.getCheckedRadioButtonId();
-            RadioButton radioButton = (RadioButton) rootView.findViewById(selectedId);
             JSONObject valuesObject = new JSONObject();
-            valuesObject.put("prepareTime", prepareTimeValue);
+            valuesObject.put("prepareTime", prepareTime);
             valuesObject.put("actionTime", actionTime);
-            valuesObject.put("mode", radioButton.getText().toString());
+            valuesObject.put("warnTime", warnTime);
+            valuesObject.put("mode", mode);
+            valuesObject.put("passes", passes);
             JSONObject payload = new JSONObject();
-            payload.put("name", "prepare");
+            payload.put("name", "configure");
             payload.put("values", valuesObject);
             Sender.broadcastJSON(payload);
 
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }
+        return actionTime;
     }
 }

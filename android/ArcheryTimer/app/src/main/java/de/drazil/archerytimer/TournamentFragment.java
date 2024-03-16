@@ -44,72 +44,119 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
     private class MyDrawable extends Drawable {
 
+        private int mode = 1;
         private int prepareTime = 0;
         private int actionTime = 0;
-        private int warnTime = 30;
-        private int maxPrepareTime = 0;
-        private int maxActionTime = 0;
+        private int warnTime = 0;
+        private int remainingPrepareTime = 0;
+        private int remainingActionTime = 0;
+        private int currentGroup = 1;
+        private int maxTime = 0;
+        private int remainingOffset = 0;
+        private int prepareColor = Color.rgb(255, 0, 0);
+        private int actionColor = Color.rgb(0, 255, 0);
+        private int warnColor = Color.rgb(241, 196, 15);
+        private int separatorColor = Color.rgb(0, 0, 0);
+        private int overlayColor = Color.argb(150, 0, 0, 0);
+        private int borderColor = Color.rgb(120, 120, 120);
 
-        public void setPrepareTime(int prepareTime) {
-            this.prepareTime = prepareTime;
+        private boolean warnOnly = false;
+
+        public MyDrawable() {
+            reset();
         }
 
-        public void setActionTime(int actionTime) {
-            this.actionTime = actionTime;
-
+        public void setRemainingPrepareTime(int remainingPrepareTime) {
+            this.remainingPrepareTime = remainingPrepareTime;
         }
 
+        public void setRemainingActionTime(int remainingActionTime) {
+            this.remainingActionTime = remainingActionTime;
+        }
+
+        public void setCurrentGroup(int currentGroup) {
+            this.currentGroup = currentGroup;
+        }
+
+
+        public void reset() {
+            SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+            mode = sharedPreferences.getInt(getString(R.string.modeStore), 1);
+            prepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0);
+            remainingPrepareTime = prepareTime;
+            actionTime = sharedPreferences.getInt(getString(R.string.actionTimeStore), 0);
+            remainingActionTime = actionTime;
+            warnTime = sharedPreferences.getInt(getString(R.string.warnTimeStore), 0);
+
+            if (warnTime > actionTime) {
+                warnTime = actionTime;
+                warnOnly = true;
+            }
+            maxTime = prepareTime + actionTime + (mode == 2 ? prepareTime * mode + actionTime : 0);
+            remainingOffset = maxTime;
+            invalidateSelf();
+        }
+
+        private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator) {
+            int w = (int) Math.ceil((double) time / maxTime * maxWidth);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(color);
+            canvas.drawRect(offset, 0, offset + w, height, paint);
+            if (showSeparator) {
+                paint.setColor(separatorColor);
+                paint.setStrokeWidth(6);
+                canvas.drawLine(offset + w - 3, 0, offset + w - 3, height, paint);
+            }
+            return w;
+        }
 
         @Override
         public void draw(Canvas canvas) {
             Paint paint = new Paint();
-            SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
-            maxPrepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0);
-            maxActionTime = sharedPreferences.getInt(getString(R.string.actionTimeStore), 0);
-            warnTime = sharedPreferences.getInt(getString(R.string.warnTimeStore), 0);
 
-
-            int maxTime = maxPrepareTime + maxActionTime;
             int width = canvas.getWidth();
             int height = canvas.getHeight();
 
-            if (maxActionTime < warnTime) {
-                warnTime = maxActionTime;
+            int remainingTime = 0;
+            int offset = 0;
+            if (mode == 1) {
+                remainingTime = maxTime - (remainingPrepareTime + remainingActionTime);
+
+                offset += drawSection(canvas, paint, offset, prepareTime, maxTime, width, height, prepareColor, true);
+                if (warnOnly) {
+                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, false);
+                } else {
+                    offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
+                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, false);
+                }
+
+            } else {
+                remainingTime = maxTime - (remainingPrepareTime + remainingActionTime + (currentGroup == 1 ? prepareTime * mode + actionTime : 0));
+
+                offset += drawSection(canvas, paint, offset, prepareTime, maxTime, width, height, prepareColor, true);
+                if (warnOnly) {
+                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, true);
+                } else {
+                    offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
+                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, true);
+                }
+                offset += drawSection(canvas, paint, offset, prepareTime * mode, maxTime, width, height, prepareColor, true);
+                if (warnOnly) {
+                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, false);
+                } else {
+                    offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
+                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, false);
+                }
             }
-            int warnWidth = (int) ((float) warnTime / maxTime * width);
-            int offset = (int) ((float) (maxTime - prepareTime - actionTime) / maxTime * width);
-            int maxPrepareWidth = (int) ((float) maxPrepareTime / maxTime * width);
+            remainingOffset = (int) ((float) remainingTime / maxTime * width);
 
-            // prepare section
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor(Color.rgb(255, 0, 0));
-            canvas.drawRect(0, 0, maxPrepareWidth, height, paint);
+            //remainingTime overlay
+            paint.setColor(overlayColor);
+            canvas.drawRect(0, 0, remainingOffset, height, paint);
 
-            if (maxActionTime > warnTime) {
-                // action section
-                paint.setColor(Color.rgb(0, 255, 0));
-                canvas.drawRect(maxPrepareWidth, 0, width - warnWidth, height, paint);
-            }
-
-            // warn section
-            paint.setColor(Color.rgb(241, 196, 15));
-            canvas.drawRect(width - warnWidth, 0, width, height, paint);
-
-            //remain overlay
-            paint.setColor(Color.argb(150, 0, 0, 0));
-            canvas.drawRect(0, 0, offset, height, paint);
-
-            //borders
-            paint.setColor(Color.rgb(0, 0, 0));
-            paint.setStrokeWidth(15);
-            canvas.drawLine(maxPrepareWidth, 0, maxPrepareWidth, height, paint);
-
-            if (maxActionTime > warnTime) {
-                paint.setStrokeWidth(15);
-                canvas.drawLine(width - warnWidth, 0, width - warnWidth, height, paint);
-            }
+            //border color
             paint.setStyle(Paint.Style.STROKE);
-            paint.setColor(Color.rgb(120, 120, 120));
+            paint.setColor(borderColor);
             paint.setStrokeWidth(25);
             canvas.drawLine(0, 0, width, 0, paint);
             canvas.drawLine(0, height, width, height, paint);
@@ -162,7 +209,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         return inflater.inflate(R.layout.fragment_tournament, container, false);
     }
 
-    private void toggleTimer(boolean flag) {
+    private void toggleTimer() {
 
         JSONObject payload = new JSONObject();
         try {
@@ -185,6 +232,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         } else if (command.equalsIgnoreCase("reset")) {
             start = true;
             startButton.setImageResource(R.drawable.play);
+            setGroupAndPassInfo("AB", 0, 0);
         } else if (command.equalsIgnoreCase("emergency")) {
             start = true;
             startButton.setImageResource(R.drawable.play);
@@ -194,15 +242,16 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
     public void remoteTimerStatusResponse(String status[]) {
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
-        setGroupAndPassInfo(status[1].equals("1") ? "AB" : "CD", String.format("%02d/%02d", Integer.valueOf(status[2]), sharedPreferences.getInt(getString(R.string.passesCountStore), 0)));
-
-        progress.setPrepareTime(Integer.valueOf(status[3]));
-        progress.setActionTime(Integer.valueOf(status[4]));
+        setGroupAndPassInfo(status[1].equals("1") ? "AB" : "CD", Integer.valueOf(status[2]), sharedPreferences.getInt(getString(R.string.passesCountStore), 0));
+        progress.setCurrentGroup(Integer.valueOf(status[3]));
+        Log.i("groupCount", status[3]);
+        progress.setRemainingPrepareTime(Integer.valueOf(status[4]));
+        progress.setRemainingActionTime(Integer.valueOf(status[5]));
         progress.invalidateSelf();
     }
 
-    private void setGroupAndPassInfo(String groupInfo, String passInfo) {
-        passStatusView.setText(String.format("Gruppe: %s - Passen: %s", groupInfo, passInfo));
+    private void setGroupAndPassInfo(String groupInfo, int currentPass, int maxPass) {
+        passStatusView.setText(String.format("Gruppe: %s - Passen: %02d/%02d", groupInfo, currentPass, maxPass));
     }
 
     @Override
@@ -246,7 +295,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int id) {
                                         dialog.cancel();
-                                        toggleTimer(start);
+                                        toggleTimer();
                                     }
                                 });
 
@@ -262,7 +311,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                     }
                 }
                 //vibrator.vibrate(VibrationEffect.createOneShot(150,200));
-                toggleTimer(start);
+                toggleTimer();
             }
         });
         ImageButton stopButton = (ImageButton) rootView.findViewById(R.id.stop);
@@ -312,7 +361,8 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 }
             }
         });
-
+        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        setGroupAndPassInfo("AB", 0, sharedPreferences.getInt(getString(R.string.passesCountStore), 0));
 
     }
 }

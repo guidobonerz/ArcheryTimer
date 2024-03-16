@@ -24,8 +24,8 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(getString(R.string.modeStore), "AB");
-        editor.putInt(getString(R.string.passesCountStore), 1);
+        editor.putInt(getString(R.string.modeStore), 1);
+        editor.putInt(getString(R.string.passesCountStore), 10);
         editor.putFloat(getString(R.string.volumeStore), 0.3f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);

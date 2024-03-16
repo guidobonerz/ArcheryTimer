@@ -286,6 +286,7 @@ setRemainingTime = False
 remainingTime = 0
 _prepareTimer = 0
 _actionTimer = 0
+warnTime = 0
 timer = 0
 participantGroups = 1
 currentParticipantGroup = 1
@@ -373,6 +374,7 @@ while True:
         elif command == "configure" and phase == PHASE_IDLE:
             _prepareTimer = control["values"]["prepareTime"]
             _actionTimer = control["values"]["actionTime"]
+            warnTime = control["values"]["warnTime"]
             participantGroups = control["values"]["mode"]
         elif command == "relax" and phase == PHASE_IDLE:
             showRelaxView()
@@ -494,7 +496,7 @@ while True:
 
                 else:  # action phase
                     if firstNumber:
-                        if timer <= 30:
+                        if timer <= warnTime:
                             trafficLight.fill = 0xf1c40f
                         else:
                             trafficLight.fill = 0x00ff00
@@ -507,7 +509,7 @@ while True:
                         targetTime = supervisor.ticks_ms()+1000
                     else:
                         if supervisor.ticks_ms() >= targetTime:
-                            if timer <= 30:
+                            if timer <= warnTime:
                                 trafficLight.fill = 0xf1c40f
                             else:
                                 trafficLight.fill = 0x00ff00
@@ -538,7 +540,7 @@ while True:
                     currentParticipantGroup = 1
                 if actionCount % 2 == 0:
                     direction = direction*-1
-     
+
             if (participantGroups == 2 and groupCount == participantGroups):
                 sendResponse("stop", displayNo, isMaster)
                 phase = PHASE_IDLE
