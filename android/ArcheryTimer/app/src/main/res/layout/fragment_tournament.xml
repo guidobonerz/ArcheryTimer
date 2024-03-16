@@ -61,8 +61,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingTop="30dp">
+        android:orientation="vertical">
 
         <CheckBox
             android:id="@+id/extendedAction"
@@ -74,7 +73,7 @@
             android:drawableStart="@drawable/custom_btn_check"
             android:drawablePadding="5dp"
             android:gravity="center_vertical"
-            android:paddingLeft="20dp"
+            android:paddingLeft="30dp"
             android:text="@string/extendedAction" />
 
 
@@ -82,9 +81,13 @@
             android:id="@+id/extendedActionGroup"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingLeft="20dp">
+            android:layout_gravity="center"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingLeft="20dp"
+            android:paddingBottom="20dp">
 
+            <!--
             <RadioButton
                 android:id="@+id/arrowButton1"
                 style="@style/Widget.AppCompat.CompoundButton.RadioButton"
@@ -100,38 +103,9 @@
                 android:padding="10dp"
                 android:text="@string/arrow1" />
 
-            <RadioButton
-                android:id="@+id/arrowButton2"
-                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:background="@null"
-                android:button="@null"
-                android:checked="false"
-                android:drawableStart="@drawable/custom_btn_radio"
-                android:drawablePadding="10dp"
-                android:enabled="false"
-                android:padding="10dp"
-                android:text="@string/arrow2" />
 
-            <RadioButton
-                android:id="@+id/arrowButton3"
-                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:background="@null"
-                android:button="@null"
-                android:checked="false"
-                android:drawableStart="@drawable/custom_btn_radio"
-                android:drawablePadding="10dp"
-                android:enabled="false"
-                android:padding="10dp"
-                android:text="@string/arrow3" />
+-->
         </RadioGroup>
-
-
     </LinearLayout>
 
     <ImageView
@@ -145,7 +119,6 @@
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:fontFamily="monospace"
-        android:text="0"
         android:textAlignment="center"
         android:textSize="24sp"
         android:textStyle="bold" />
