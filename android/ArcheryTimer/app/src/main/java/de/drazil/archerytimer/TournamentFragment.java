@@ -262,7 +262,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
     }
 
     private void setGroupAndPassInfo(String groupInfo, int currentPass, int maxPass) {
-        passStatusView.setText(String.format("Gruppe: %s - Passen: %02d/%02d", groupInfo, currentPass, maxPass));
+        passStatusView.setText(String.format("%s: %s - %s: %02d/%02d", getString(R.string.groupText), groupInfo, getString(R.string.passesText), currentPass, maxPass));
     }
 
     @Override
@@ -298,11 +298,11 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
                         AlertDialog.Builder builder1 = new AlertDialog.Builder(v.getContext());
 
-                        builder1.setMessage("Wirklich nachschiessen?");
+                        builder1.setMessage(getString(R.string.confirmExtendedAction));
                         builder1.setCancelable(true);
 
                         builder1.setPositiveButton(
-                                "Ja",
+                                getString(R.string.yes),
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int id) {
                                         dialog.cancel();
@@ -311,7 +311,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                                 });
 
                         builder1.setNegativeButton(
-                                "Nein",
+                                getString(R.string.no),
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int id) {
                                         dialog.cancel();

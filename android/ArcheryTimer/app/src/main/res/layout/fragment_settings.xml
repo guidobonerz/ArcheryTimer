@@ -24,7 +24,7 @@
             android:layout_height="40dp"
             android:layout_marginTop="7dp"
             android:layout_marginRight="20dp"
-            android:text="Gruppen"
+            android:text="@string/groupsText"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -69,7 +69,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Anzahl Pfeile pro Passe">
+        android:hint="@string/arrowCountText">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/arrowCount"
@@ -85,7 +85,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Anzahl Passen"
+        android:hint="@string/passesText"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -101,7 +101,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Vorbereitungszeit/Sek."
+        android:hint="@string/prepareTimeText"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -115,7 +115,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Zeit pro Pfeil/Sek."
+        android:hint="@string/arrowTimeText"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -129,7 +129,7 @@
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Warnzeit/Sek."
+        android:hint="@string/warnTimeText"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -145,7 +145,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:enabled="true"
-        android:hint="Zeit pro Passe/Sek."
+        android:hint="@string/actionTimeText"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
@@ -167,7 +167,7 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:gravity="center_vertical"
-            android:text="Lautstärke" />
+            android:text="@string/volumeText" />
 
         <com.google.android.material.slider.Slider
             android:id="@+id/volumeSlider"

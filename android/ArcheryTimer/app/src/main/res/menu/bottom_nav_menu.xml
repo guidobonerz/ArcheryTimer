@@ -6,24 +6,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:icon="@drawable/baseline_home_24"
-        android:title="Home" />
+        android:title="@string/homeViewText" />
     <item
         android:id="@+id/tournament"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:icon="@drawable/baseline_alarm_24"
-        android:title="Turnier" />
+        android:title="@string/tournamentViewText" />
     <item
         android:id="@+id/settings"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:icon="@drawable/baseline_settings_24"
-        android:title="Einstellungen" />
+        android:title="@string/setupViewText" />
 
     <item
         android:id="@+id/relax"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:icon="@drawable/baseline_self_improvement_24"
-        android:title="Fun" />
+        android:title="@string/funViewText" />
 </menu>
