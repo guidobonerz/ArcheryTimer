@@ -540,7 +540,7 @@ while True:
                 if actionCount % 2 == 0:
                     direction = direction*-1
 
-            if (participantGroups == 2 and groupCount == participantGroups):
+            if ((participantGroups == 2 and groupCount == participantGroups) or participantGroups==1):
                 sendResponse("stop", displayNo, isMaster)
                 phase = PHASE_IDLE
                 dfplayer.play(track=2)
@@ -550,7 +550,8 @@ while True:
                 dfplayer.play(track=3)
                 prepare = True
                 firstNumber = True
-                groupCount += 1
+                if(participantGroups==2):
+                    groupCount += 1
         else:
             pass
     else:
