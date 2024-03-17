@@ -1,8 +1,7 @@
 <resources>
     <string name="app_name">ArcheryTimer</string>
-    <string name="home_blank_fragment">Hello blank fragment</string>
-    <string name="settings_blank_fragment">Hello blank fragment</string>
     <string name="arrowCountStore">arrowCountStore</string>
+    <string name="shootInTimeStore">shootInStore</string>
     <string name="passesCountStore">passesCountStore</string>
     <string name="prepareTimeStore">prepareTimeStore</string>
     <string name="arrowTimeStore">arrowTimeStore</string>
@@ -13,10 +12,13 @@
     <string name="arrow1">1</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
-    <string name="extendedAction">Re-shoot</string>
-    <string name="confirmExtendedAction">Sure to re-shoot?</string>
     <string name="arrowCountText">Arrows per pass</string>
     <string name="passesText">Passes</string>
+    <string name="shootInTimeText">Shoot-in time/Min.</string>
+    <string name="modeShootInText">Shoot-in</string>
+    <string name="modeTournamentText">Tournament</string>
+    <string name="modeReShootText">Re-shoot</string>
+    <string name="confirmReShootAction">Sure to re-shoot?</string>
     <string name="prepareTimeText">Preparation time/Sec.</string>
     <string name="arrowTimeText">Time per arrow/Sec.</string>
     <string name="warnTimeText">Warning time/Sec.</string>

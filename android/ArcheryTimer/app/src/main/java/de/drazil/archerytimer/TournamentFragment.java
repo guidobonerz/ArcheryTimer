@@ -18,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RadioButton;
@@ -37,13 +38,18 @@ import de.drazil.archerytimer.udp.UDPServer;
 public class TournamentFragment extends Fragment implements IRemoteControl {
 
     private boolean start = true;
-    private boolean extendedAction = false;
+    private boolean reshootAction = false;
+
+    private String topic = null;
+
     private ImageButton startButton = null;
     private TextView passStatusView = null;
     private ImageView imageView = null;
     private MyDrawable progress = null;
-    private CheckBox extendedActionButton = null;
-    private RadioGroup radioGroup = null;
+
+    private RadioGroup tournamentPhaseGroup = null;
+
+    private RadioGroup reshootActionGroup = null;
 
 
     private class MyDrawable extends Drawable {
@@ -97,29 +103,20 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 warnTime = actionTime;
                 warnOnly = true;
             }
-            maxTime = prepareTime + actionTime + (mode == 2 ? prepareTime * mode + actionTime : 0);
+            maxTime = prepareTime + actionTime;
             remainingOffset = maxTime;
             invalidateSelf();
         }
 
-        private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator) {
-            return drawSection(canvas, paint, offset, time, maxTime, maxWidth, height, color, showSeparator, false);
-        }
 
-        private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator, boolean groupSeparator) {
+        private int drawSection(Canvas canvas, Paint paint, int offset, int time, int maxTime, int maxWidth, int height, int color, boolean showSeparator) {
             int w = (int) Math.ceil((double) time / maxTime * maxWidth);
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(color);
             canvas.drawRect(offset, 0, offset + w, height, paint);
             if (showSeparator) {
-                if (groupSeparator) {
-                    paint.setColor(groupSeparatorColor);
-                    paint.setStrokeWidth(8);
-                } else {
-                    paint.setColor(separatorColor);
-                    paint.setStrokeWidth(6);
-                }
-
+                paint.setColor(separatorColor);
+                paint.setStrokeWidth(6);
                 canvas.drawLine(offset + w - 3, 0, offset + w - 3, height, paint);
             }
             return w;
@@ -134,27 +131,15 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
             int remainingTime = 0;
             int offset = 0;
-            if (mode == 1) {
-                remainingTime = maxTime - (remainingPrepareTime + remainingActionTime);
-            } else {
-                remainingTime = maxTime - (remainingPrepareTime + remainingActionTime + (currentGroup == 1 ? prepareTime * mode + actionTime : 0));
-            }
+
+            remainingTime = maxTime - (remainingPrepareTime + remainingActionTime);
 
             offset += drawSection(canvas, paint, offset, prepareTime, maxTime, width, height, prepareColor, true);
             if (warnOnly) {
-                offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, mode == 2, mode == 2);
+                offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, false);
             } else {
                 offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
-                offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, mode == 2, mode == 2);
-            }
-            if (mode == 2) {
-                offset += drawSection(canvas, paint, offset, prepareTime * mode, maxTime, width, height, prepareColor, true);
-                if (warnOnly) {
-                    offset += drawSection(canvas, paint, offset, actionTime, maxTime, width, height, warnColor, false);
-                } else {
-                    offset += drawSection(canvas, paint, offset, actionTime - warnTime, maxTime, width, height, actionColor, true);
-                    offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, false);
-                }
+                offset += drawSection(canvas, paint, offset, warnTime, maxTime, width, height, warnColor, false);
             }
 
             remainingOffset = (int) ((float) remainingTime / maxTime * width);
@@ -221,7 +206,10 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
     private void toggleTimer() {
         JSONObject payload = new JSONObject();
         try {
+            JSONObject valuesObject = new JSONObject();
+            valuesObject.put("topic", topic);
             payload.put("name", "toggle_action");
+            payload.put("values", valuesObject);
             Sender.broadcastJSON(payload);
             start = !start;
         } catch (Exception ex) {
@@ -266,36 +254,73 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         super.onViewCreated(rootView, savedInstanceState);
 
         final VibratorManager vibrator = (VibratorManager) getActivity().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
-        extendedActionButton = (CheckBox) rootView.findViewById(R.id.extendedAction);
-        extendedActionButton.setOnClickListener(v -> {
-            extendedAction = extendedActionButton.isChecked();
-            SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
-            int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
-            for (int i = 1; i < arrowCount + 1; i++) {
-                RadioButton rb = (RadioButton) rootView.findViewById(i);
-                rb.setEnabled(extendedAction);
-                rb.setChecked(i == 1);
-            }
-        });
+
 
         progress = new MyDrawable();
         imageView = (ImageView) rootView.findViewById(R.id.timerProgress);
         imageView.setImageDrawable(progress);
 
-        radioGroup = (RadioGroup) rootView.findViewById(R.id.extendedActionGroup);
+        reshootActionGroup = (RadioGroup) rootView.findViewById(R.id.reShootActionGroup);
+        reshootActionGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup radioGroup, int id) {
+                Log.i("button", String.valueOf(id));
+
+            }
+        });
+
+        tournamentPhaseGroup = (RadioGroup) rootView.findViewById(R.id.tournamentPhase);
+        tournamentPhaseGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup radioGroup, int id) {
+                reshootAction = false;
+                reshootActionGroup.setVisibility(View.INVISIBLE);
+                if (id == R.id.modeShootIn) {
+                    topic = "shoot-in";
+                } else if (id == R.id.modeTournament) {
+                    topic = "tournament";
+                } else if (id == R.id.modeReShoot) {
+                    topic = "re-shoot";
+                    RadioButton radioButton = (RadioButton) radioGroup.findViewById(id);
+                    reshootAction = radioButton.isChecked();
+                    reshootActionGroup.setVisibility(View.VISIBLE);
+                    SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+                    int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
+                    for (int i = 1; i < arrowCount + 1; i++) {
+                        RadioButton rb = (RadioButton) rootView.findViewById(i);
+                        rb.setEnabled(reshootAction);
+                        rb.setChecked(i == 1);
+                    }
+                }
+            }
+        });
+
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
         int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
         for (int i = 1; i < arrowCount + 1; i++) {
             RadioButton radioButton = new RadioButton(rootView.getContext());
             radioButton.setId(i);
             radioButton.setGravity(Gravity.CENTER);
-            radioButton.setPadding(2, 20, 25, 20);
+            radioButton.setPadding(20, 20, 25, 20);
             radioButton.setBackground(null);
-            radioButton.setButtonDrawable(R.drawable.custom_btn_radio);
-            radioButton.setText(String.valueOf(i));
+            if (i == 1) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn1_radio);
+            } else if (i == 2) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn2_radio);
+            } else if (i == 3) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn3_radio);
+            } else if (i == 4) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn4_radio);
+            } else if (i == 5) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn5_radio);
+            } else if (i == 6) {
+                radioButton.setButtonDrawable(R.drawable.custom_btn6_radio);
+            } else {
+            }
+
             radioButton.setChecked(i == 1);
             radioButton.setEnabled(false);
-            radioGroup.addView(radioButton);
+            reshootActionGroup.addView(radioButton);
         }
 
 
@@ -313,9 +338,9 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 */
 
                     //vibrator.vibrate(VibrationEffect.createOneShot(150,200));
-                    if (extendedAction) {
+                    if (reshootAction) {
                         AlertDialog.Builder builder1 = new AlertDialog.Builder(v.getContext());
-                        builder1.setMessage(getString(R.string.confirmExtendedAction));
+                        builder1.setMessage(getString(R.string.confirmReShootAction));
                         builder1.setCancelable(true);
                         builder1.setPositiveButton(
                                 getString(R.string.yes),
@@ -388,6 +413,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 }
             }
         });
+
         setGroupAndPassInfo("AB", 0, sharedPreferences.getInt(getString(R.string.passesCountStore), 0));
     }
 }

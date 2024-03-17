@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
         editor.putFloat(getString(R.string.volumeStore), 0.3f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);
+        editor.putInt(getString(R.string.arrowTimeStore), 30);
         editor.putInt(getString(R.string.warnTimeStore), 30);
         editor.putInt(getString(R.string.prepareTimeStore), 10);
         editor.apply();

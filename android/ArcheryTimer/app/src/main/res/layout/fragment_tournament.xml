@@ -10,6 +10,89 @@
     android:padding="0dp"
     tools:context=".TournamentFragment">
 
+    <RadioGroup
+        android:id="@+id/tournamentPhase"
+        android:layout_width="wrap_content"
+        android:layout_height="66dp"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/modeShootIn"
+            style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:button="@null"
+            android:checked="true"
+            android:drawableStart="@drawable/custom_btn_radio"
+            android:drawablePadding="5dp"
+            android:gravity="center_vertical"
+            android:text="@string/modeShootInText"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <RadioButton
+            android:id="@+id/modeTournament"
+            style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:button="@null"
+            android:drawableStart="@drawable/custom_btn_radio"
+            android:drawablePadding="5dp"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:text="@string/modeTournamentText"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <RadioButton
+            android:id="@+id/modeReShoot"
+            style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:button="@null"
+            android:drawableStart="@drawable/custom_btn_radio"
+            android:drawablePadding="5dp"
+            android:gravity="center_vertical"
+            android:paddingStart="10dp"
+            android:text="@string/modeReShootText"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </RadioGroup>
+
+    <RadioGroup
+        android:id="@+id/reShootActionGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:visibility="invisible"
+        android:orientation="horizontal"
+        android:paddingLeft="20dp"
+        android:paddingBottom="20dp">
+
+        <!--
+            <RadioButton
+                android:id="@+id/arrowButton1"
+                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:background="@null"
+                android:button="@null"
+                android:checked="true"
+                android:drawableStart="@drawable/custom_btn_radio"
+                android:drawablePadding="10dp"
+                android:enabled="false"
+                android:padding="10dp"
+                android:text="@string/arrow1" />
+
+
+    -->
+    </RadioGroup>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -37,7 +120,8 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingBottom="80dp">
 
         <ImageButton
             android:id="@+id/emergency"
@@ -56,56 +140,6 @@
             android:background="#000000"
             android:padding="10dp"
             android:src="@drawable/history" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <CheckBox
-            android:id="@+id/extendedAction"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@null"
-            android:button="@null"
-            android:checked="false"
-            android:drawableStart="@drawable/custom_btn_check"
-            android:drawablePadding="5dp"
-            android:gravity="center_vertical"
-            android:paddingLeft="30dp"
-            android:text="@string/extendedAction" />
-
-
-        <RadioGroup
-            android:id="@+id/extendedActionGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="horizontal"
-            android:gravity="center"
-            android:paddingLeft="20dp"
-            android:paddingBottom="20dp">
-
-            <!--
-            <RadioButton
-                android:id="@+id/arrowButton1"
-                style="@style/Widget.AppCompat.CompoundButton.RadioButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:background="@null"
-                android:button="@null"
-                android:checked="true"
-                android:drawableStart="@drawable/custom_btn_radio"
-                android:drawablePadding="10dp"
-                android:enabled="false"
-                android:padding="10dp"
-                android:text="@string/arrow1" />
-
-
--->
-        </RadioGroup>
     </LinearLayout>
 
     <ImageView
