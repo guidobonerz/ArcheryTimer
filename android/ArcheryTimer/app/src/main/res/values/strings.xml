@@ -35,7 +35,8 @@
     <string name="title1Text">Bogensport</string>
     <string name="title2Text">Tournier Timer</string>
     <string name="sloganText">Alle ins Gold</string>
-
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 
 
 </resources>

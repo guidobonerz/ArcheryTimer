@@ -17,8 +17,6 @@ import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RadioButton;
@@ -45,14 +43,14 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
     private ImageButton startButton = null;
     private TextView passStatusView = null;
     private ImageView imageView = null;
-    private MyDrawable progress = null;
+    private ProgressControl progress = null;
 
     private RadioGroup tournamentPhaseGroup = null;
 
     private RadioGroup reshootActionGroup = null;
 
 
-    private class MyDrawable extends Drawable {
+    private class ProgressControl extends Drawable {
 
         private int mode = 1;
         private int prepareTime = 0;
@@ -73,7 +71,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
         private boolean warnOnly = false;
 
-        public MyDrawable() {
+        public ProgressControl() {
             reset();
         }
 
@@ -208,6 +206,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         try {
             JSONObject valuesObject = new JSONObject();
             valuesObject.put("topic", topic);
+            valuesObject.put("time", 0);
             payload.put("name", "toggle_action");
             payload.put("values", valuesObject);
             Sender.broadcastJSON(payload);
@@ -256,7 +255,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         final VibratorManager vibrator = (VibratorManager) getActivity().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
 
 
-        progress = new MyDrawable();
+        progress = new ProgressControl();
         imageView = (ImageView) rootView.findViewById(R.id.timerProgress);
         imageView.setImageDrawable(progress);
 
@@ -291,6 +290,16 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                         rb.setEnabled(reshootAction);
                         rb.setChecked(i == 1);
                     }
+                }
+                JSONObject payload = new JSONObject();
+                try {
+                    JSONObject valuesObject = new JSONObject();
+                    valuesObject.put("topic", topic);
+                    payload.put("name", "change_topic");
+                    payload.put("values", valuesObject);
+                    Sender.broadcastJSON(payload);
+                } catch (Exception ex) {
+                    Log.e("Error", ex.getMessage());
                 }
             }
         });
@@ -364,7 +373,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                     }
                 } else {
                     //vibrator.vibrate(VibrationEffect.createOneShot(150,200));
-                    //toggleTimer();
+                    toggleTimer();
                 }
             }
         });

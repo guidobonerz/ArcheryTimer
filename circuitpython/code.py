@@ -22,6 +22,14 @@ from adafruit_bitmap_font import bitmap_font
 from DFPlayer import DFPlayer
 # from DFPlayerPro import DFPlayerPro
 
+lang = "en"
+dictionary = {"de": {"shoot-in": "Einschiessen",
+                     "pause": "PAUSE",
+                     "setup": "SETUP"},
+              "en": {"shoot-in": "Shoot-In",
+                     "pause": "PAUSE",
+                     "setup": "SETUP"}}
+
 bit_depth = 2
 base_width = 64
 base_height = 64
@@ -48,6 +56,7 @@ rgb_pins = [
     board.MTX_G2,
     board.MTX_B2
 ]
+
 clock_pin = board.MTX_CLK
 latch_pin = board.MTX_LAT
 oe_pin = board.MTX_OE
@@ -104,7 +113,7 @@ pauseInfo = adafruit_display_text.label.Label(
     abcdFont,
     color=0xf39c12,
     scale=2,
-    text="PAUSE")
+    text=dictionary[lang]["pause"])
 pauseInfo.x = 5
 pauseInfo.y = 24
 pauseBackground = RoundRect(
@@ -126,16 +135,36 @@ tournamentGroup.append(player2)
 tournamentGroup.append(trafficLight)
 tournamentGroup.append(pauseGroup)
 
+shootInText = adafruit_display_text.label.Label(
+    terminalio.FONT,
+    color=0x5dade2,
+    scale=1,
+    text=dictionary[lang]["shoot-in"])
+shootInBounds = shootInText.bounding_box
+shootInText.x = int(64-shootInBounds[2]/2)
+shootInText.y = 54
+
+shootInTime = adafruit_display_text.label.Label(
+    seg7Font,
+    color=0xffffff,
+    text="45")
+shootInTime.x = 35
+shootInTime.y = 17
+
+shootInGroup = displayio.Group()
+shootInGroup.append(shootInText)
+shootInGroup.append(shootInTime)
 
 setup = adafruit_display_text.label.Label(
     abcdFont,
     color=0xf39c12,
     scale=2,
-    text="SETUP")
+    text=dictionary[lang]["setup"])
 setup.x = 5
 setup.y = 24
 setupBackground = RoundRect(
     0, 15, 128, 30, 2, fill=0x000000, outline=0x505050, stroke=2)
+
 
 setupGroup = displayio.Group()
 setupGroup.hidden = False
@@ -264,8 +293,9 @@ signalColors = [0xffffff, 0xf4d03f, 0xff0000, 0x00ff00]
 
 MAIN_VIEW = 10
 TOURNAMENT_VIEW = 20
-SETUP_VIEW = 30
-RELAX_VIEW = 40
+SHOOTIN_VIEW = 30
+SETUP_VIEW = 40
+RELAX_VIEW = 50
 
 view = MAIN_VIEW
 
@@ -284,8 +314,9 @@ pause = False
 
 setRemainingTime = False
 remainingTime = 0
-_prepareTimer = 0
-_actionTimer = 0
+_prepareTime = 0
+_actionTime = 0
+_shootInTime = 0
 warnTime = 0
 timer = 0
 participantGroups = 1
@@ -299,6 +330,7 @@ actionCount = 0
 signalVolume = 30
 senderIp = ""
 groupCount = 0
+topic = ""
 
 
 def showMainView():
@@ -315,6 +347,13 @@ def showTournamentView():
     display.auto_refresh = True
 
 
+def showShootInView():
+    global view
+    view = SHOOTIN_VIEW
+    display.root_group = shootInGroup
+    display.auto_refresh = True
+
+
 def showSetupView():
     global view
     view = SETUP_VIEW
@@ -326,6 +365,7 @@ def showRelaxView():
     global view
     view = RELAX_VIEW
     display.root_group = sysGroup
+    display.auto_refresh = True
 
 
 def sendResponse(command, displayNo, isMaster, values=None):
@@ -372,12 +412,21 @@ while True:
         elif command == "setup" and phase == PHASE_IDLE:
             showSetupView()
         elif command == "configure" and phase == PHASE_IDLE:
-            _prepareTimer = control["values"]["prepareTime"]
-            _actionTimer = control["values"]["actionTime"]
+            _prepareTime = control["values"]["prepareTime"]
+            _actionTime = control["values"]["actionTime"]
+            _shootInTime = control["values"]["shootInTime"]
             warnTime = control["values"]["warnTime"]
             participantGroups = control["values"]["mode"]
         elif command == "relax" and phase == PHASE_IDLE:
             showRelaxView()
+        elif command == "change_topic" and phase == PHASE_IDLE:
+            topic = control["values"]["topic"]
+            if topic == "shoot-in":
+                showShootInView()
+            elif topic == "tournament":
+                showTournamentView()
+            else:
+                x = 3
         elif command == "toggle_action" and view == TOURNAMENT_VIEW:
             if phase == PHASE_IDLE:
                 phase = PHASE_RUN
@@ -403,7 +452,7 @@ while True:
             pause = False
             firstNumber = True
             timeDiff = 0
-            timer = _prepareTimer
+            timer = _prepareTime
             currentParticipantGroup = 1
             passe = 0
             groupCount = 1
@@ -414,7 +463,7 @@ while True:
             player1.text = "A"
             player2.text = "B"
             passText.text = "{:02d}".format(passe)
-            counterLine.text = "{:3d}".format(_prepareTimer)
+            counterLine.text = "{:3d}".format(_prepareTime)
             sendResponse("reset", displayNo, isMaster)
         elif command == "volume":
             signalVolume = control["values"]["value"]
@@ -433,6 +482,8 @@ while True:
             rtc.datetime_register.tm_mday, rtc.datetime_register.tm_mon, rtc.datetime_register.tm_year)
         mainLine4.text = dateText
         mainLine5.text = timeText
+    elif view == SHOOTIN_VIEW:
+        x = 1
     elif view == RELAX_VIEW:
         if firstNumber:
             targetTime = supervisor.ticks_ms()+5
@@ -460,7 +511,7 @@ while True:
                 setRemainingTime = False
                 if prepare:
                     if firstNumber:
-                        timer = _prepareTimer*groupCount
+                        timer = _prepareTime
                         if actionCount % participantGroups == 0:
                             passe = passe+1
                         dfplayer.play(track=1)
@@ -469,6 +520,8 @@ while True:
                         passText.text = "{:02d}".format(passe)
                         counterLine.color = signalColors[0]
                         counterLine.text = tv
+                        sendStatus(displayNo, isMaster, currentParticipantGroup,
+                                   passe, groupCount, _prepareTime, _actionTime)
                         if currentParticipantGroup == 1:
                             player1.text = "A"
                             player2.text = "B"
@@ -481,14 +534,15 @@ while True:
                     else:
                         if supervisor.ticks_ms() >= targetTime:
                             targetTime = supervisor.ticks_ms()+1000
-                            sendStatus(displayNo, isMaster, currentParticipantGroup,
-                                       passe, groupCount, timer, _actionTimer)
                             timer = timer-1
-
+                            sendStatus(displayNo, isMaster, currentParticipantGroup,
+                                       passe, groupCount, timer, _actionTime)
                             if timer < 0:
                                 prepare = False
                                 firstNumber = True
-                                timer = _actionTimer
+                                timer = _actionTime
+                                sendStatus(
+                                    displayNo, isMaster, currentParticipantGroup, passe, groupCount, 0, _actionTime)
                                 dfplayer.play(track=3)
                             else:
                                 tv = "{:3d}".format(timer)
@@ -540,17 +594,17 @@ while True:
                 if actionCount % 2 == 0:
                     direction = direction*-1
 
-            if ((participantGroups == 2 and groupCount == participantGroups) or participantGroups==1):
-                sendResponse("stop", displayNo, isMaster)
+            if ((participantGroups == 2 and groupCount == participantGroups) or participantGroups == 1):
                 phase = PHASE_IDLE
                 dfplayer.play(track=2)
                 groupCount = 1
+                sendResponse("stop", displayNo, isMaster)
             else:
                 phase = PHASE_RUN
                 dfplayer.play(track=3)
                 prepare = True
                 firstNumber = True
-                if(participantGroups==2):
+                if (participantGroups == 2):
                     groupCount += 1
         else:
             pass

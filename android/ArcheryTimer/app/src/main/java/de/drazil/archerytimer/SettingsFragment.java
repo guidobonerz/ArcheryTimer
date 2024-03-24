@@ -285,6 +285,7 @@ public class SettingsFragment extends Fragment {
     private int calcActionTime(SharedPreferences sharedPreferences) {
         int actionTime = sharedPreferences.getInt(getString(R.string.arrowTimeStore), 0) * sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
         int prepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0);
+        int shootInTime = sharedPreferences.getInt(getString(R.string.shootInTimeStore), 0);
         int warnTime = sharedPreferences.getInt(getString(R.string.warnTimeStore), 0);
         int mode = sharedPreferences.getInt(getString(R.string.modeStore), 1);
         int passes = sharedPreferences.getInt(getString(R.string.passesCountStore), 1);
@@ -292,6 +293,7 @@ public class SettingsFragment extends Fragment {
             JSONObject valuesObject = new JSONObject();
             valuesObject.put("prepareTime", prepareTime);
             valuesObject.put("actionTime", actionTime);
+            valuesObject.put("shootInTime", shootInTime);
             valuesObject.put("warnTime", warnTime);
             valuesObject.put("mode", mode);
             valuesObject.put("passes", passes);
