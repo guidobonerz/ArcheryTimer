@@ -148,7 +148,8 @@ shootInTime = adafruit_display_text.label.Label(
     seg7Font,
     color=0xffffff,
     text="45")
-shootInTime.x = 35
+shootInTimeBounds = shootInTime.bounding_box
+shootInTime.x = int(64-shootInTimeBounds[2]/2)
 shootInTime.y = 17
 
 shootInGroup = displayio.Group()
