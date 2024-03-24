@@ -426,7 +426,7 @@ while True:
             elif topic == "tournament":
                 showTournamentView()
             else:
-                x = 3
+                pass
         elif command == "toggle_action" and view == TOURNAMENT_VIEW:
             if phase == PHASE_IDLE:
                 phase = PHASE_RUN
