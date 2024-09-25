@@ -8,7 +8,8 @@
     android:foregroundTint="#FFFFFF"
     android:orientation="vertical"
     android:padding="0dp"
-    tools:context=".TournamentFragment">
+    tools:context=".TournamentFragment"
+    android:tag="TournamentFragment">
 
     <RadioGroup
         android:id="@+id/tournamentPhase"
@@ -23,7 +24,6 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:button="@null"
-            android:checked="true"
             android:drawableStart="@drawable/custom_btn_radio"
             android:drawablePadding="5dp"
             android:gravity="center_vertical"
@@ -38,6 +38,7 @@
             android:layout_height="wrap_content"
             android:background="@null"
             android:button="@null"
+            android:checked="true"
             android:drawableStart="@drawable/custom_btn_radio"
             android:drawablePadding="5dp"
             android:gravity="center_vertical"

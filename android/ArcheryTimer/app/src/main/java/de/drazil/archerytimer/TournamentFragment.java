@@ -12,6 +12,7 @@ import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.VibratorManager;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -29,13 +30,14 @@ import androidx.fragment.app.Fragment;
 
 import org.json.JSONObject;
 
-import de.drazil.archerytimer.udp.Sender;
+import de.drazil.archerytimer.udp.UDPSender;
 import de.drazil.archerytimer.udp.UDPServer;
 
 
-public class TournamentFragment extends Fragment implements IRemoteControl {
+public class TournamentFragment extends Fragment implements IRemoteControl, IRemoteView {
 
-    private boolean start = true;
+    private boolean idle = true;
+    private boolean hold = false;
     private boolean reshootAction = false;
 
     private String topic = null;
@@ -178,6 +180,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         super.onCreate(savedInstanceState);
         Log.i("UDPServer", "start");
         UDPServer.start();
+
     }
 
     @Override
@@ -188,15 +191,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        JSONObject payload = new JSONObject();
-        try {
-            payload.put("name", "tournament");
-            Sender.broadcastJSON(payload);
-        } catch (Exception ex) {
-            Log.e("Error", ex.getMessage());
-        }
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         UDPServer.setRemoteControl(this);
         return inflater.inflate(R.layout.fragment_tournament, container, false);
     }
@@ -205,33 +200,47 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         JSONObject payload = new JSONObject();
         try {
             JSONObject valuesObject = new JSONObject();
-            valuesObject.put("topic", topic);
             valuesObject.put("time", 0);
-            payload.put("name", "toggle_action");
+            valuesObject.put("hold", hold);
+            payload.put("command", "start_pause_action");
             payload.put("values", valuesObject);
-            Sender.broadcastJSON(payload);
-            start = !start;
+            UDPSender.broadcastJSON(payload);
+            hold = !hold;
+
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }
     }
 
-    public void remoteTimerResponse(String command) {
-        if (command.equalsIgnoreCase("toggle_action")) {
-            Log.i("start", String.valueOf(start));
-            startButton.setImageResource(start ? R.drawable.play : R.drawable.pause);
-        } else if (command.equalsIgnoreCase("stop")) {
-            start = true;
-            startButton.setImageResource(R.drawable.play);
-        } else if (command.equalsIgnoreCase("reset")) {
-            start = true;
-            startButton.setImageResource(R.drawable.play);
-            setGroupAndPassInfo("AB", 0, 0);
-        } else if (command.equalsIgnoreCase("emergency")) {
-            start = true;
-            startButton.setImageResource(R.drawable.play);
-        } else {
+
+    public void handleResponse(JSONObject json) {
+        String command = "";
+        try {
+            command = json.getString("command");
+            if (command.equalsIgnoreCase("start_pause_action")) {
+                startButton.setImageResource(hold ? R.drawable.pause : R.drawable.play);
+            } else if (command.equalsIgnoreCase("stop")) {
+                hold = false;
+                idle = true;
+                startButton.setImageResource(R.drawable.play);
+            } else if (command.equalsIgnoreCase("reset")) {
+                hold = false;
+                idle = true;
+                startButton.setImageResource(R.drawable.play);
+                setGroupAndPassInfo("AB", 0, 0);
+            } else if (command.equalsIgnoreCase("emergency")) {
+                hold = false;
+                idle = true;
+                startButton.setImageResource(R.drawable.play);
+            } else {
+            }
+        } catch (Exception ex) {
+
         }
+    }
+
+    public void remoteTimerResponse(String command) {
+
     }
 
     public void remoteTimerStatusResponse(String status[]) {
@@ -251,20 +260,20 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
     @Override
     public void onViewCreated(@NonNull View rootView, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(rootView, savedInstanceState);
-
         final VibratorManager vibrator = (VibratorManager) getActivity().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
-
-
         progress = new ProgressControl();
         imageView = (ImageView) rootView.findViewById(R.id.timerProgress);
         imageView.setImageDrawable(progress);
-
         reshootActionGroup = (RadioGroup) rootView.findViewById(R.id.reShootActionGroup);
         reshootActionGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int id) {
+                SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
                 Log.i("button", String.valueOf(id));
-
+                SharedPreferences.Editor editor = sharedPreferences.edit();
+                editor.putInt(getString(R.string.reshootArrowCountStore), id);
+                editor.apply();
+                UDPSender.sendConfiguration(sharedPreferences);
             }
         });
 
@@ -272,18 +281,15 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
         tournamentPhaseGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int id) {
+                SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
                 reshootAction = false;
                 reshootActionGroup.setVisibility(View.INVISIBLE);
-                if (id == R.id.modeShootIn) {
-                    topic = "shoot-in";
-                } else if (id == R.id.modeTournament) {
-                    topic = "tournament";
-                } else if (id == R.id.modeReShoot) {
-                    topic = "re-shoot";
+                String subViewName = getSubViewName();
+                UDPSender.controlDisplay(subViewName, null);
+                if (subViewName.equalsIgnoreCase("re_shoot")) {
                     RadioButton radioButton = (RadioButton) radioGroup.findViewById(id);
                     reshootAction = radioButton.isChecked();
                     reshootActionGroup.setVisibility(View.VISIBLE);
-                    SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
                     int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
                     for (int i = 1; i < arrowCount + 1; i++) {
                         RadioButton rb = (RadioButton) rootView.findViewById(i);
@@ -291,13 +297,8 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                         rb.setChecked(i == 1);
                     }
                 }
-                JSONObject payload = new JSONObject();
                 try {
-                    JSONObject valuesObject = new JSONObject();
-                    valuesObject.put("topic", topic);
-                    payload.put("name", "change_topic");
-                    payload.put("values", valuesObject);
-                    Sender.broadcastJSON(payload);
+                    UDPSender.sendConfiguration(sharedPreferences);
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -306,8 +307,9 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
 
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
         int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
+        RadioButton radioButton = null;
         for (int i = 1; i < arrowCount + 1; i++) {
-            RadioButton radioButton = new RadioButton(rootView.getContext());
+            radioButton = new RadioButton(rootView.getContext());
             radioButton.setId(i);
             radioButton.setGravity(Gravity.CENTER);
             radioButton.setPadding(20, 20, 25, 20);
@@ -326,51 +328,43 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 radioButton.setButtonDrawable(R.drawable.custom_btn6_radio);
             } else {
             }
-
             radioButton.setChecked(i == 1);
             radioButton.setEnabled(false);
             reshootActionGroup.addView(radioButton);
         }
-
-
         passStatusView = (TextView) rootView.findViewById(R.id.passStatus);
-
         startButton = (ImageButton) rootView.findViewById(R.id.start);
         startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (start) {
+                if (!idle) {
 /*
                     int selectedId = radioGroup.getCheckedRadioButtonId();
                     RadioButton radioButton = (RadioButton) radioGroup.findViewById(selectedId);
                     String mode = radioButton.getText().toString();
 */
-
                     //vibrator.vibrate(VibrationEffect.createOneShot(150,200));
                     if (reshootAction) {
                         AlertDialog.Builder builder1 = new AlertDialog.Builder(v.getContext());
                         builder1.setMessage(getString(R.string.confirmReShootAction));
                         builder1.setCancelable(true);
-                        builder1.setPositiveButton(
-                                getString(R.string.yes),
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        dialog.cancel();
-                                        toggleTimer();
-                                    }
-                                });
-                        builder1.setNegativeButton(
-                                getString(R.string.no),
-                                new DialogInterface.OnClickListener() {
-                                    public void onClick(DialogInterface dialog, int id) {
-                                        dialog.cancel();
-                                    }
-                                });
+                        builder1.setPositiveButton(getString(R.string.yes), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                                toggleTimer();
+                            }
+                        });
+                        builder1.setNegativeButton(getString(R.string.no), new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface dialog, int id) {
+                                dialog.cancel();
+                            }
+                        });
                         AlertDialog alert11 = builder1.create();
                         alert11.show();
                     } else {
                         toggleTimer();
                     }
+                    idle = false;
                 } else {
                     //vibrator.vibrate(VibrationEffect.createOneShot(150,200));
                     toggleTimer();
@@ -384,15 +378,13 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 //vibrator.vibrate(VibrationEffect.createOneShot(250,200));
                 JSONObject payload = new JSONObject();
                 try {
-                    payload.put("name", "stop");
-                    Sender.broadcastJSON(payload);
+                    payload.put("command", "stop");
+                    UDPSender.broadcastJSON(payload);
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
             }
         });
-
-
         ImageButton emergencyButton = (ImageButton) rootView.findViewById(R.id.emergency);
         emergencyButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -400,14 +392,13 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 //vibrator.vibrate(VibrationEffect.createOneShot(450,255));
                 JSONObject payload = new JSONObject();
                 try {
-                    payload.put("name", "emergency");
-                    Sender.broadcastJSON(payload);
+                    payload.put("command", "emergency");
+                    UDPSender.broadcastJSON(payload);
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
             }
         });
-
         ImageButton resetButton = (ImageButton) rootView.findViewById(R.id.reset);
         resetButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -415,14 +406,35 @@ public class TournamentFragment extends Fragment implements IRemoteControl {
                 //vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0,40,80,40,80,40,0},-1));
                 JSONObject payload = new JSONObject();
                 try {
-                    payload.put("name", "reset");
-                    Sender.broadcastJSON(payload);
+                    payload.put("command", "reset");
+                    UDPSender.broadcastJSON(payload);
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
             }
         });
-
         setGroupAndPassInfo("AB", 0, sharedPreferences.getInt(getString(R.string.passesCountStore), 0));
+    }
+
+    @Override
+    public String getCurrentView() {
+        return getSubViewName();
+    }
+
+    private String getSubViewName() {
+        String viewName = "";
+        if (tournamentPhaseGroup == null) {
+            viewName = "tournament";
+        } else {
+            int id = tournamentPhaseGroup.getCheckedRadioButtonId();
+            if (id == R.id.modeShootIn) {
+                viewName = "shoot_in";
+            } else if (id == R.id.modeTournament) {
+                viewName = "tournament";
+            } else if (id == R.id.modeReShoot) {
+                viewName = "re_shoot";
+            }
+        }
+        return viewName;
     }
 }

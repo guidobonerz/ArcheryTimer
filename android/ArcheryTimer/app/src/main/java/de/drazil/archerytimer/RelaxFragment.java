@@ -6,14 +6,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import org.json.JSONObject;
-
-import de.drazil.archerytimer.udp.Sender;
+import de.drazil.archerytimer.udp.UDPSender;
 
 
-public class RelaxFragment extends Fragment {
+public class RelaxFragment extends Fragment implements IRemoteView{
 
     public RelaxFragment() {
         // Required empty public constructor
@@ -27,14 +26,11 @@ public class RelaxFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        JSONObject payload = new JSONObject();
-        try {
-            payload.put("name", "relax");
-            Sender.broadcastJSON(payload);
-        } catch (Exception ex) {
-            Log.e("Error", ex.getMessage());
-        }
+
         return inflater.inflate(R.layout.fragment_relax, container, false);
     }
-
+    @Override
+    public String getCurrentView() {
+        return "state";
+    }
 }

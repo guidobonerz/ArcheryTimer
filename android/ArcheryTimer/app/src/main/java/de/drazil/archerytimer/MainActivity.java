@@ -8,8 +8,10 @@ import androidx.fragment.app.FragmentTransaction;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 
 import de.drazil.archerytimer.databinding.ActivityMainBinding;
+import de.drazil.archerytimer.udp.UDPSender;
 import de.drazil.archerytimer.udp.UDPServer;
 
 public class MainActivity extends AppCompatActivity {
@@ -29,37 +31,49 @@ public class MainActivity extends AppCompatActivity {
         editor.putFloat(getString(R.string.volumeStore), 0.3f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);
-        editor.putInt(getString(R.string.arrowTimeStore), 30);
         editor.putInt(getString(R.string.warnTimeStore), 30);
+        editor.putInt(getString(R.string.reshootArrowCountStore), 0);
         editor.putInt(getString(R.string.prepareTimeStore), 10);
+        editor.putInt(getString(R.string.shootInTimeStore), 45);
         editor.apply();
         UDPServer.start();
-
-
         if (savedInstanceState == null) {
-            replaceFragment(new HomeFragment());
+            displayFragment(HomeFragment.class, "home");
         }
-
-
         binding.bottomNavigationView.setOnItemSelectedListener(item -> {
             if (item.getItemId() == R.id.home) {
-                replaceFragment(new HomeFragment());
+                displayFragment(HomeFragment.class, "home");
             } else if (item.getItemId() == R.id.tournament) {
-                replaceFragment(new TournamentFragment());
+                displayFragment(TournamentFragment.class, "tournament");
             } else if (item.getItemId() == R.id.settings) {
-                replaceFragment(new SettingsFragment());
+                displayFragment(SettingsFragment.class, "setup");
             } else if (item.getItemId() == R.id.relax) {
-                replaceFragment(new RelaxFragment());
+                displayFragment(RelaxFragment.class, "state");
             }
             return true;
         });
     }
 
-    private void replaceFragment(Fragment fragment) {
-        FragmentManager fragmentManager = getSupportFragmentManager();
-        
-        FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
-        fragmentTransaction.replace(R.id.frame_layout, fragment);
-        fragmentTransaction.commit();
+    protected void displayFragment(Class<? extends Fragment> fragmentClass, String tagName) {
+        FragmentTransaction ft = getSupportFragmentManager().beginTransaction();
+        FragmentManager fm = getSupportFragmentManager();
+        try {
+            for (Fragment fragment : fm.getFragments()) {
+                if (!fragment.getTag().equalsIgnoreCase(tagName)) {
+                    ft.hide(fragment);
+                }
+            }
+            Fragment f = fm.findFragmentByTag(tagName);
+            if (f == null) {
+                f = fragmentClass.newInstance();
+                ft.add(R.id.frame_layout, f, tagName);
+            } else {
+                ft.show(f);
+            }
+            ft.commit();
+            UDPSender.controlDisplay(((IRemoteView) f).getCurrentView(), null);
+        } catch (Exception ex) {
+            Log.e("Error", ex.toString());
+        }
     }
 }

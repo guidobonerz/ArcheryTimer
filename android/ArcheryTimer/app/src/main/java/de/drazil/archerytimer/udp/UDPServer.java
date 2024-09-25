@@ -45,19 +45,12 @@ public class UDPServer implements Runnable {
                 String text = new String(message, 0, packet.getLength());
                 Log.i("response", text);
                 if (rc != null) {
-                    Matcher matcher = pattern.matcher(text);
-                    if (matcher.matches()) {
-                        if (matcher.group(2).startsWith("status")) {
-                            rc.remoteTimerStatusResponse(matcher.group(2).split(":"));
-                        } else {
-                            JSONObject jsonObject = new JSONObject(matcher.group(2));
-                            Log.i("name", jsonObject.getString("name"));
-                            rc.remoteTimerResponse(jsonObject.getString("name"));
-                        }
+                    JSONObject jsonObject = new JSONObject(text);
+                    if (jsonObject.get("source").equals("display")) {
+                        rc.handleResponse(jsonObject);
                     }
                 }
             }
-
         } catch (Exception e) {
             Log.e("UDP client has IOException", "error: ", e);
             serverRunning = false;
@@ -66,7 +59,6 @@ public class UDPServer implements Runnable {
 
     public static void start() {
         getInstance()._start();
-
     }
 
     public void _start() {

@@ -10,7 +10,8 @@
     android:foregroundTint="#FFFFFF"
     android:orientation="vertical"
     android:padding="16dp"
-    tools:context=".SettingsFragment">
+    tools:context=".SettingsFragment"
+    android:tag="SettingsFragment">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -67,14 +68,21 @@
 
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="@string/passesText"
+        android:textSize="30dp"
+        android:textStyle="bold"
+        android:textColorHint="@color/white"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/passesCount"
+            android:textStyle="bold"
+            android:textCursorDrawable="@null"
+            android:textColor="@color/black"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number"
@@ -82,31 +90,42 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:hint="@string/arrowCountText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/arrowCount"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number"
             android:outlineAmbientShadowColor="#FFFFFF"
-            android:textColor="#FFFFFF"
             android:textColorHighlight="#FFFFFF" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:hint="@string/shootInTimeText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/shootInTime"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number"
@@ -114,42 +133,60 @@
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:hint="@string/prepareTimeText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/prepareTime"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:hint="@string/arrowTimeText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/arrowTime"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:hint="@string/warnTimeText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/warnTime"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number" />
@@ -157,15 +194,21 @@
 
 
     <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+        style="@style/Widget.MaterialComponents.TextInputLayout.FilledBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textColorHint="@color/white"
         android:enabled="true"
         android:hint="@string/actionTimeText"
+        android:textSize="16sp"
+        android:textStyle="bold"
         android:paddingTop="20dp">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/actionTime"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:backgroundTint="@color/blue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:enabled="false"

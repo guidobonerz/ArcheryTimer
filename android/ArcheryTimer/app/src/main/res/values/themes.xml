@@ -6,6 +6,7 @@
         <item name="colorPrimary">@color/black</item>
         <item name="colorPrimaryDark">@color/black</item>
         <item name="android:windowBackground">@color/black</item>
+        <item name="android:outlineSpotShadowColor">@color/white</item>
         <item name="windowActionBar">false</item>L
     </style>
 
@@ -18,5 +19,7 @@
         <item name="android:background">@drawable/dialog_frame</item>
         <item name="android:textSize">16dp</item>
     </style>
+
+    
 
 </resources>

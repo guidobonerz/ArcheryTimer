@@ -1,8 +1,9 @@
 <resources>
     <string name="app_name">ArcheryTimer</string>
     <string name="passesCountStore">passesCountStore</string>
-    <string name="shootInTimeStore">shootInStore</string>
+    <string name="shootInTimeStore">shootInTimeStore</string>
     <string name="arrowCountStore">arrowCountStore</string>
+    <string name="reshootArrowCountStore">reshootArrowCountStore</string>
     <string name="prepareTimeStore">prepareTimeStore</string>
     <string name="arrowTimeStore">arrowTimeStore</string>
     <string name="warnTimeStore">warnTimeStore</string>
