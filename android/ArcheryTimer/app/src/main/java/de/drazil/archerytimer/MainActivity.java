@@ -26,15 +26,16 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPreferences = getPreferences(Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putInt(getString(R.string.modeStore), 1);
+        editor.putInt(getString(R.string.groupStore), 1);
         editor.putInt(getString(R.string.passesCountStore), 10);
-        editor.putFloat(getString(R.string.volumeStore), 0.3f);
+        editor.putFloat(getString(R.string.volumeStore), 10.0f);
         editor.putInt(getString(R.string.arrowCountStore), 3);
         editor.putInt(getString(R.string.arrowTimeStore), 30);
         editor.putInt(getString(R.string.warnTimeStore), 30);
         editor.putInt(getString(R.string.reshootArrowCountStore), 0);
         editor.putInt(getString(R.string.prepareTimeStore), 10);
         editor.putInt(getString(R.string.shootInTimeStore), 45);
+        editor.putBoolean(getString(R.string.flashingPrepareLightStore), true);
         editor.apply();
         UDPServer.start();
         if (savedInstanceState == null) {
@@ -47,8 +48,8 @@ public class MainActivity extends AppCompatActivity {
                 displayFragment(TournamentFragment.class, "tournament");
             } else if (item.getItemId() == R.id.settings) {
                 displayFragment(SettingsFragment.class, "setup");
-            } else if (item.getItemId() == R.id.relax) {
-                displayFragment(RelaxFragment.class, "state");
+            } else if (item.getItemId() == R.id.state) {
+                displayFragment(StateFragment.class, "state");
             }
             return true;
         });
@@ -67,11 +68,13 @@ public class MainActivity extends AppCompatActivity {
             if (f == null) {
                 f = fragmentClass.newInstance();
                 ft.add(R.id.frame_layout, f, tagName);
+
+                UDPSender.sendConfiguration(getPreferences(Context.MODE_PRIVATE), System.currentTimeMillis());
             } else {
                 ft.show(f);
             }
             ft.commit();
-            UDPSender.controlDisplay(((IRemoteView) f).getCurrentView(), null);
+            UDPSender.controlDisplay(((IRemoteView) f).getCurrentView(), null, System.currentTimeMillis());
         } catch (Exception ex) {
             Log.e("Error", ex.toString());
         }

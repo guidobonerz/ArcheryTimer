@@ -8,8 +8,8 @@
     android:foregroundTint="#FFFFFF"
     android:orientation="vertical"
     android:padding="0dp"
-    tools:context=".TournamentFragment"
-    android:tag="TournamentFragment">
+    android:tag="TournamentFragment"
+    tools:context=".TournamentFragment">
 
     <RadioGroup
         android:id="@+id/tournamentPhase"
@@ -69,10 +69,10 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:gravity="center"
-        android:visibility="invisible"
         android:orientation="horizontal"
         android:paddingLeft="20dp"
-        android:paddingBottom="20dp">
+        android:paddingBottom="20dp"
+        android:visibility="invisible">
 
         <!--
             <RadioButton

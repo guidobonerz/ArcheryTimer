@@ -2,6 +2,7 @@
     <string name="app_name">ArcheryTimer</string>
     <string name="passesCountStore">passesCountStore</string>
     <string name="shootInTimeStore">shootInTimeStore</string>
+    <string name="flashingPrepareLightStore">flashingPrepareLightStore</string>
     <string name="arrowCountStore">arrowCountStore</string>
     <string name="reshootArrowCountStore">reshootArrowCountStore</string>
     <string name="prepareTimeStore">prepareTimeStore</string>
@@ -9,29 +10,31 @@
     <string name="warnTimeStore">warnTimeStore</string>
     <string name="actionTimeStore">actionTimeStore</string>
     <string name="volumeStore">volumeStore</string>
-    <string name="modeStore">modeStore</string>
+    <string name="groupStore">groupStore</string>
     <string name="arrow1">1</string>
     <string name="yes">Ja</string>
     <string name="no">Nein</string>
     <string name="arrowCountText">Pfeile pro Passe</string>
     <string name="passesText">Passen</string>
-    <string name="shootInTimeText">Einschiesszeit/Min.</string>
+    <string name="shootInTimeText">Einschiesszeit/min</string>
     <string name="modeShootInText">Einschiessen</string>
     <string name="modeTournamentText">Turnier</string>
     <string name="modeReShootText">Re-shoot</string>
     <string name="confirmReShootAction">Wirklich nachschiessen?</string>
-    <string name="prepareTimeText">Vorbereitungszeit/Sek.</string>
-    <string name="arrowTimeText">Zeit pro Pfeil/Sek.</string>
-    <string name="warnTimeText">Warnzeit/Sek.</string>
-    <string name="actionTimeText">Zeit pro Passe/Sek.</string>
+    <string name="prepareTimeText">Vorbereitungszeit/s</string>
+    <string name="arrowTimeText">Zeit pro Pfeil/s</string>
+    <string name="warnTimeText">Warnzeit/s</string>
+    <string name="actionTimeText">Zeit pro Passe/s</string>
     <string name="groupText">Gruppe</string>
     <string name="groupsText">Gruppen</string>
     <string name="volumeText">Lautstärke</string>
+    <string name="flashingPrepareLight">Vorbereitungphase blinkt</string>
+    <string name="flashingInterval">Blinkinterval/ms</string>
 
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournier</string>
     <string name="setupViewText">Einstellungen</string>
-    <string name="funViewText">Fun</string>
+    <string name="stateViewText">Status</string>
 
     <string name="title1Text">Bogensport</string>
     <string name="title2Text">Tournier Timer</string>

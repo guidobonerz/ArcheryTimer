@@ -36,7 +36,7 @@ public class UDPServer implements Runnable {
 
 
             while (serverRunning) {
-                byte[] message = new byte[8000];
+                byte[] message = new byte[300]; //70
 
                 DatagramPacket packet = new DatagramPacket(message, message.length);
                 Log.i("UDP client: ", "about to wait to receive");
@@ -44,16 +44,25 @@ public class UDPServer implements Runnable {
 
                 String text = new String(message, 0, packet.getLength());
                 Log.i("response", text);
+
+
                 if (rc != null) {
                     JSONObject jsonObject = new JSONObject(text);
-                    if (jsonObject.get("source").equals("display")) {
+                    if (jsonObject.get("src").equals("display")) {
                         rc.handleResponse(jsonObject);
+                        /*
+                        if(!jsonObject.get("command").equals("ACK")) {
+                            UDPSender.sendACK();
+                        }
+                        */
+
                     }
                 }
             }
-        } catch (Exception e) {
+        } catch (
+                Exception e) {
             Log.e("UDP client has IOException", "error: ", e);
-            serverRunning = false;
+            //serverRunning = false;
         }
     }
 

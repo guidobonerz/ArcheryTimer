@@ -20,46 +20,47 @@ import de.drazil.archerytimer.R;
 public class UDPSender {
 
 
-    public static void controlDisplay(String name, JSONObject additionalPayload) {
+    public static void controlDisplay(String name, JSONObject additionalPayload, long startTime) {
         JSONObject payload = new JSONObject();
         try {
-            payload.put("command", "change_view");
-            payload.put("view", name);
+            payload.put("cmd", "change_view");
+            payload.put("v", name);
             if (additionalPayload != null) {
-                payload.put("values", additionalPayload);
+                payload.put("val", additionalPayload);
             }
-            UDPSender.broadcastJSON(payload);
+            UDPSender.broadcastJSON(payload, startTime);
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }
     }
 
-    public static void broadcastJSON(JSONObject json) throws IOException {
-        broadcast(json, InetAddress.getByName("255.255.255.255"));
+
+    public static void broadcastJSON(JSONObject json, long startTime) throws IOException {
+        broadcast(json, InetAddress.getByName("255.255.255.255"), startTime);
     }
 
-    public static void broadcast(JSONObject json, InetAddress address) throws IOException {
+    public static void broadcast(JSONObject json, InetAddress address, long startTime) throws IOException {
+
         Log.i("INFO", json.toString());
-        try {
-            json.put("ip", getIPAddress(true));
-        } catch (Exception ex) {
-        }
+
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
         DatagramSocket socket = new DatagramSocket();
 
         socket.setReuseAddress(true);
         socket.setBroadcast(true);
-        try {
-            json.put("source", "controller");
-        } catch (JSONException jex) {
+        for (int i = 0; i < 2; i++) {
+            try {
+                json.put("src", "controller");
+                json.put("sd", System.currentTimeMillis() - startTime);
+            } catch (JSONException jex) {
 
+            }
+            byte[] buffer = (json.toString()).getBytes();
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length, address, 5005);
+            socket.send(packet);
+            socket.close();
         }
-
-        byte[] buffer = (json.toString()).getBytes();
-        DatagramPacket packet = new DatagramPacket(buffer, buffer.length, address, 5005);
-        socket.send(packet);
-        socket.close();
     }
 
     public static String getIPAddress(boolean useIPv4) {
@@ -90,21 +91,22 @@ public class UDPSender {
         return "";
     }
 
-    public static void sendConfiguration(SharedPreferences sharedPreferences) {
+    public static void sendConfiguration(SharedPreferences sharedPreferences, long startTime) {
         try {
             JSONObject valuesObject = new JSONObject();
-            valuesObject.put("prepareTime", sharedPreferences.getInt("prepareTimeStore", 0));
-            valuesObject.put("arrowTime", sharedPreferences.getInt("arrowTimeStore", 0));
-            valuesObject.put("arrowCount", sharedPreferences.getInt("arrowCountStore", 0));
-            valuesObject.put("reshootArrowCount", sharedPreferences.getInt("reshootArrowCountStore", 0));
-            valuesObject.put("shootInTime", sharedPreferences.getInt("shootInTimeStore", 0));
-            valuesObject.put("warnTime", sharedPreferences.getInt("warnTimeStore", 0));
-            valuesObject.put("mode", sharedPreferences.getInt("modeStore", 1));
-            valuesObject.put("passes", sharedPreferences.getInt("passesCountStore", 1));
+            valuesObject.put("pt", sharedPreferences.getInt("prepareTimeStore", 0));
+            valuesObject.put("at", sharedPreferences.getInt("arrowTimeStore", 0));
+            valuesObject.put("ac", sharedPreferences.getInt("arrowCountStore", 0));
+            valuesObject.put("rac", sharedPreferences.getInt("reshootArrowCountStore", 0));
+            valuesObject.put("sit", sharedPreferences.getInt("shootInTimeStore", 0));
+            valuesObject.put("wt", sharedPreferences.getInt("warnTimeStore", 0));
+            valuesObject.put("g", sharedPreferences.getInt("groupStore", 1));
+            valuesObject.put("p", sharedPreferences.getInt("passesCountStore", 1));
+            valuesObject.put("fpl",sharedPreferences.getBoolean("flashingPrepareLightStore",true));
             JSONObject payload = new JSONObject();
-            payload.put("command", "config");
-            payload.put("values", valuesObject);
-            broadcastJSON(payload);
+            payload.put("cmd", "config");
+            payload.put("val", valuesObject);
+            broadcastJSON(payload, startTime);
         } catch (Exception ex) {
             Log.e("Error", ex.getMessage());
         }

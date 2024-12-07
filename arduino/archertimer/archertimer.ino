@@ -1,3 +1,4 @@
+#include "ESP.h"
 #include "Arduino.h"
 #include <Adafruit_Protomatter.h>
 #include "AbcdFont.h"
@@ -11,6 +12,10 @@
 #include <Wire.h>
 #include "DFRobotDFPlayerMini.h"
 #include "Preferences.h"
+
+
+#define RW_MODE false
+#define RO_MODE true
 
 uint8_t rgbPins[] = { 42, 41, 40, 38, 39, 37 };
 uint8_t addrPins[] = { 45, 36, 48, 35, 21 };
@@ -146,11 +151,12 @@ void setup(void) {
 
   Serial.begin(115200);
 
-  prefs.begin("archery_timer", false);
+  prefs.begin("archery_timer", RW_MODE);
   if (!prefs.getBool("wifi_set", false)) {
     prefs.putString("ssid", "wlan_ssid");
     prefs.putString("auth", "wlan_auth");
     prefs.putBool("wifi_set", true);
+
     Serial.println("Store new parameters to flash memory");
   } else {
     Serial.printf("Restore parameters from flash memory :%s / %s\n", prefs.getString("ssid"), prefs.getString("auth"));
@@ -159,9 +165,6 @@ void setup(void) {
 
 
 
-  //showIntro();
-  showMainView();
-
   if (wifiEnabled) {
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
@@ -169,16 +172,28 @@ void setup(void) {
     wifiActive = true;
 
     uint8_t check = 0;
+    bool wasRestarted = false;
+    prefs.begin("archery_timer", RW_MODE);
+    wasRestarted = prefs.isKey("wasRestarted");
+    prefs.end();
     while (WiFi.status() != WL_CONNECTED) {
       delay(200);
       Serial.print(".");
-      if (check > 100) {
+      if (check > 10) {
+        prefs.begin("archery_timer", RW_MODE);
+        prefs.putBool("wasRestarted", true);
+        prefs.end();
+        if (!wasRestarted) {
+          ESP.restart();
+        }
         wifiActive = false;
         break;
       }
       check++;
     }
-
+    prefs.begin("archery_timer", RW_MODE);
+    prefs.remove("wasRestarted");
+    prefs.end();
     if (wifiActive) {
       udp.begin(localPort);
       Serial.printf("Connected to WiFi\n");
@@ -210,6 +225,9 @@ void setup(void) {
 
   soundActive = true;
 
+  //showIntro();
+  showMainView();
+
   matrix.setTextWrap(false);
 }
 
@@ -239,12 +257,12 @@ void loop(void) {
         return;
       }
 
-      const char* source = doc["source"];
+      const char* source = doc["src"];
       if (strcmp(source, "controller") == 0) {
-        const char* command = doc["command"];
-        syncDelay = doc["syncDelay"];
+        const char* command = doc["cmd"];
+        syncDelay = doc["sd"];
         if (strcmp(command, CHANGE_VIEW) == 0 && phase == IdlePhase) {
-          const char* viewName = doc["view"];
+          const char* viewName = doc["v"];
           if (strcmp(viewName, HOME) == 0) {
             view = MainView;
             showMainView();
@@ -268,40 +286,57 @@ void loop(void) {
         } else if (strcmp(command, RUN) == 0 && (phase == IdlePhase || phase == RunPhase)) {
           if (phase == IdlePhase) {
             phase = RunPhase;
+            if (view == ShootInView) {
+              timer2 = 0;
+              timer = 0;
+              initTimer = shootInTime;
+            } else if (view == TournamentView) {
+              timer = 0;
+              initTimer = prepareTime;
+            }
             initialize = true;
             prepare = true;
           }
+
           initSync = true;
-          hold = false;
+          hold = doc["val"]["h"];
           Serial.println("RUN");
           sendRunState();
         } else if (strcmp(command, PAUSE) == 0 && phase == RunPhase) {
           initSync = true;
-          hold = true;
+          hold = doc["val"]["h"];
           Serial.println("PAUSE");
           sendPauseState();
         } else if (strcmp(command, STOP) == 0 && phase == RunPhase) {
           initSync = true;
           phase = StopPhase;
+          hold = doc["val"]["h"];
         } else if (strcmp(command, CONFIG) == 0) {
-          reset();
+          configure();
         } else if (strcmp(command, RESET) == 0) {
           reset();
+          if (view == ShootInView) {
+            showShootInView();
+          } else if (view == TournamentView) {
+            showTournamentView();
+          }
+          sendResetState();
+          sendStatus(1, 1, groups, 0, 0);
         } else if (strcmp(command, EMERGENCY) == 0) {
         } else if (strcmp(command, VOLUME) == 0) {
-          myDFPlayer.volume(doc["values"]["value"]);
+          myDFPlayer.volume(doc["val"]["val"]);
         } else if (strcmp(command, TEST_SIGNAL) == 0 && phase == IdlePhase) {
           myDFPlayer.play(1);
         } else if (strcmp(command, STATE) == 0 && phase == IdlePhase) {
         }
-         Serial.printf("view:%d    phase:%d\n", view, phase);
+        Serial.printf("view:%d    phase:%d\n", view, phase);
       }
     }
   } else {
     // no wifi
     view = StatusView;
   }
- 
+
 
   if (view == MainView) {
   } else if (view == ShootInView) {
@@ -412,6 +447,7 @@ void loop(void) {
               if (prepare) {
                 myDFPlayer.play(1);
                 initTimer = reshootActive ? reshootTime : shootingTime;
+                Serial.printf("reshoot:%s , time: %d\n", (reshootActive ? "true" : "false"), (reshootActive ? reshootTime : shootingTime));
                 timer = initTimer;
                 prepare = false;
               } else {
@@ -441,7 +477,7 @@ void loop(void) {
           } else {
             currentGroup += 1;
             groupSet++;
-            initTimer = prepareTime * 2;
+            initTimer = prepareTime;  // * 2;
             phase = RunPhase;
           }
         } else {
@@ -456,13 +492,14 @@ void loop(void) {
           } else {
             currentGroup -= 1;
             groupSet++;
-            initTimer = prepareTime * 2;
+            initTimer = prepareTime;  // * 2;
             phase = RunPhase;
           }
         }
         drawGroup(currentGroup);
       } else {
         phase = IdlePhase;
+        currentPasses += 1;
         groupSet = 0;
         myDFPlayer.play(3);
         sendStop();
@@ -470,6 +507,7 @@ void loop(void) {
       if (currentPasses == passes) {
         currentGroup = 1;
         currentPasses = 1;
+        // show final view
       }
 
       matrix.show();
@@ -643,63 +681,89 @@ void showMainView() {
 }
 
 void reset() {
-  prepareTime = doc["values"]["prepareTime"];
-  arrowTime = doc["values"]["arrowTime"];
-  arrowCount = doc["values"]["arrowCount"];
-  reshootArrowCount = doc["values"]["reshootArrowCount"];
-  shootingTime = arrowCount * arrowTime;
-  reshootTime = reshootArrowCount * arrowTime;
-  shootInTime = doc["values"]["shootInTime"];
-  warnTime = doc["values"]["warnTime"];
-  groups = doc["values"]["groups"];
+  phase = IdlePhase;
+  initialize = true;
+  prepare = true;
+  initSync = true;
+  currentPasses = 1;
   currentGroup = 1;
   groupSet = 0;
-  passes = doc["values"]["passes"];
+  initTimer = prepareTime;
+  timer = initTimer;
 }
+
+void configure() {
+  prefs.begin("archery_timer", RW_MODE);
+  prefs.putUShort("pt", doc["val"]["pt"]);
+  prefs.putUShort("at", doc["val"]["at"]);
+  prefs.putUShort("ac", doc["val"]["ac"]);
+  prefs.putUShort("rac", doc["val"]["rac"]);
+  prefs.putUShort("sit", doc["val"]["sit"]);
+  prefs.putUShort("wt", doc["val"]["wt"]);
+  prefs.putUShort("g", doc["val"]["g"]);
+  prefs.putBool("fpl", doc["val"]["fpl"]);
+  prefs.putUShort("p", doc["val"]["p"]);
+
+  prepareTime = prefs.getUShort("pt");
+  arrowTime = prefs.getUShort("at");
+  arrowCount = prefs.getUShort("ac");
+  reshootArrowCount = prefs.getUShort("rac");
+  shootInTime = prefs.getUShort("sit");
+  shootingTime = arrowCount * arrowTime;
+  reshootTime = reshootArrowCount * arrowTime;
+  warnTime = prefs.getUShort("wt");
+  groups = prefs.getUShort("g");
+  flashingPrepareLight = prefs.getBool("fpl");
+  passes = prefs.getUShort("p");
+  Serial.printf("A>reshootArrowCount:%d, arrowCount:%d, warnTime:%d\n", prefs.getUShort("rac"), prefs.getUShort("ac"), prefs.getUShort("wt"));
+  Serial.printf("B>reshootArrowCount:%d, arrowCount:%d, warnTime:%d\n", doc["val"]["rac"], arrowCount, warnTime);
+  prefs.end();
+}
+
 
 void sendStop() {
   doc.clear();
-  doc["source"] = "display";
-  doc["command"] = STOP;
-  doc["displayNo"] = displayNo;
-  udp.beginPacket(udpAddress, localPort);
-  serializeJson(doc, udp);
-  udp.endPacket();
+  doc["src"] = "display";
+  doc["cmd"] = STOP;
+  doc["dn"] = displayNo;
+  sendPacket(doc);
 }
 
 void sendRunState() {
   doc.clear();
-  doc["source"] = "display";
-  doc["command"] = RUN;
-  doc["displayNo"] = displayNo;
-  udp.beginPacket(udpAddress, localPort);
-  serializeJson(doc, udp);
-  udp.endPacket();
+  doc["src"] = "display";
+  doc["cmd"] = RUN;
+  doc["dn"] = displayNo;
+  sendPacket(doc);
 }
 
 void sendPauseState() {
   doc.clear();
-  doc["source"] = "display";
-  doc["command"] = PAUSE;
-  doc["displayNo"] = displayNo;
-  udp.beginPacket(udpAddress, localPort);
-  serializeJson(doc, udp);
-  udp.endPacket();
+  doc["src"] = "display";
+  doc["cmd"] = PAUSE;
+  doc["dn"] = displayNo;
+  sendPacket(doc);
+}
+
+void sendResetState() {
+  doc.clear();
+  doc["src"] = "display";
+  doc["cmd"] = RESET;
+  doc["dn"] = displayNo;
+  sendPacket(doc);
 }
 
 void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, uint8_t prepareCurrent, uint8_t actionCurrent) {
-  doc["source"] = "display";
-  doc["command"] = "state";
-  doc["displayNo"] = displayNo;
-  doc["currentGroup"] = currentGroup;
-  doc["currentPasses"] = currentPasses;
-  doc["groups"] = groups;
-  doc["currentPrepareTime"] = prepareCurrent;
-  doc["currentActionTime"] = actionCurrent;
-  doc["groupSet"] = groupSet;
-  udp.beginPacket(udpAddress, localPort);
-  serializeJson(doc, udp);
-  udp.endPacket();
+  doc["src"] = "display";
+  doc["cmd"] = "state";
+  doc["dn"] = displayNo;
+  doc["cg"] = currentGroup;
+  doc["cp"] = currentPasses;
+  doc["g"] = groups;
+  doc["cpt"] = prepareCurrent;
+  doc["cat"] = actionCurrent;
+  doc["gs"] = groupSet;
+  sendPacket(doc);
   /*
   sprintf(responseBuffer, "src:%s|cmd:%s|dno:%d|cgp:%d|cps:%d|grp:%d|cpt:%d|cat:%d\0", "disp", "stat", displayNo, currentGroup, currentPasses, groups, prepareCurrent, actionCurrent);
   udp.beginPacket(controllerIp, localPort);
@@ -707,6 +771,12 @@ void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, u
   while (responseBuffer[i] != 0) udp.write((uint8_t)responseBuffer[i++]);
   udp.endPacket();
 */
+}
+
+void sendPacket(JsonDocument d) {
+  udp.beginPacket(udpAddress, localPort);
+  serializeJson(doc, udp);
+  udp.endPacket();
 }
 
 void showIntro() {

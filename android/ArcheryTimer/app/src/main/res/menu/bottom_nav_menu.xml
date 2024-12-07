@@ -21,9 +21,9 @@
         android:title="@string/setupViewText" />
 
     <item
-        android:id="@+id/relax"
+        android:id="@+id/state"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:icon="@drawable/baseline_self_improvement_24"
-        android:title="@string/funViewText" />
+        android:icon="@drawable/baseline_checklist_rtl_24"
+        android:title="@string/stateViewText" />
 </menu>
