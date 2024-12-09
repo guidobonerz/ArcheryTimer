@@ -12,6 +12,7 @@
 #include <Wire.h>
 #include "DFRobotDFPlayerMini.h"
 #include "Preferences.h"
+#include "Auth.h"
 
 
 #define RW_MODE false
@@ -30,7 +31,8 @@ enum View { Dummy = 100,
             TournamentView,
             SetupView,
             StatusView,
-            PauseView };
+            PauseView,
+            FinalView };
 
 enum Phase { IdlePhase = 200,
              RunPhase,
@@ -40,6 +42,7 @@ enum Phase { IdlePhase = 200,
 View view = MainView;
 Phase phase = IdlePhase;
 
+bool stop = false;
 bool hold = false;
 bool prepare = true;
 bool initialize = true;
@@ -106,8 +109,8 @@ float r1, r2, r3, r4, r5;
 
 char receiveBuffer[255];
 
-char ssid[] = "";
-char pass[] = "";
+//char ssid[] = "";
+//char pass[] = "";
 
 
 Adafruit_Protomatter matrix(
@@ -179,7 +182,7 @@ void setup(void) {
     while (WiFi.status() != WL_CONNECTED) {
       delay(200);
       Serial.print(".");
-      if (check > 10) {
+      if (check > 20) {
         prefs.begin("archery_timer", RW_MODE);
         prefs.putBool("wasRestarted", true);
         prefs.end();
@@ -297,7 +300,6 @@ void loop(void) {
             initialize = true;
             prepare = true;
           }
-
           initSync = true;
           hold = doc["val"]["h"];
           Serial.println("RUN");
@@ -327,9 +329,8 @@ void loop(void) {
           myDFPlayer.volume(doc["val"]["val"]);
         } else if (strcmp(command, TEST_SIGNAL) == 0 && phase == IdlePhase) {
           myDFPlayer.play(1);
-        } else if (strcmp(command, STATE) == 0 && phase == IdlePhase) {
         }
-        Serial.printf("view:%d    phase:%d\n", view, phase);
+        //Serial.printf("view:%d    phase:%d\n", view, phase);
       }
     }
   } else {
@@ -410,6 +411,7 @@ void loop(void) {
             } else {
               sendStatus(currentGroup, currentPasses, groups, 0, timer);
             }
+            drawCountdown(46, 3, timer);
             drawPasses(75, 2, currentPasses);
             matrix.show();
             myDFPlayer.play(2);
@@ -447,8 +449,8 @@ void loop(void) {
               if (prepare) {
                 myDFPlayer.play(1);
                 initTimer = reshootActive ? reshootTime : shootingTime;
-                Serial.printf("reshoot:%s , time: %d\n", (reshootActive ? "true" : "false"), (reshootActive ? reshootTime : shootingTime));
                 timer = initTimer;
+                drawCountdown(46, 3, timer);
                 prepare = false;
               } else {
                 phase = StopPhase;
@@ -462,18 +464,13 @@ void loop(void) {
     } else if (phase == StopPhase) {
       prepare = true;
       initialize = true;
-      drawCountdown(46, 3, timer);
+      drawCountdown(46, 3, 0);
       drawTrafficLight(Red, true);
       if (groups > 1) {
         if (!reverseMode) {
           if (currentGroup == groups) {
             reverseMode = true;
-            phase = IdlePhase;
-            currentPasses += 1;
-            initTimer = prepareTime;
-            groupSet = 0;
-            myDFPlayer.play(3);
-            sendStop();
+            stop = true;
           } else {
             currentGroup += 1;
             groupSet++;
@@ -483,12 +480,7 @@ void loop(void) {
         } else {
           if (currentGroup == 1) {
             reverseMode = false;
-            phase = IdlePhase;
-            currentPasses += 1;
-            initTimer = prepareTime;
-            groupSet = 0;
-            myDFPlayer.play(3);
-            sendStop();
+            stop = true;
           } else {
             currentGroup -= 1;
             groupSet++;
@@ -498,16 +490,26 @@ void loop(void) {
         }
         drawGroup(currentGroup);
       } else {
+        stop = true;
+      }
+      if (stop) {
+        sendStop();
+        stop = false;
         phase = IdlePhase;
         currentPasses += 1;
         groupSet = 0;
+        if (currentPasses <= passes) {
+          drawPasses(75, 2, currentPasses);
+        }
+        matrix.show();
         myDFPlayer.play(3);
-        sendStop();
-      }
-      if (currentPasses == passes) {
-        currentGroup = 1;
-        currentPasses = 1;
-        // show final view
+        if (currentPasses > passes) {
+          currentGroup = 1;
+          currentPasses = 1;
+          delay(2000);
+          view = FinalView;
+          myDFPlayer.play(5);
+        }
       }
 
       matrix.show();
@@ -520,6 +522,8 @@ void loop(void) {
     view = Dummy;
   } else if (view == PauseView) {
     //showPauseView();
+  } else if (view == FinalView) {
+    showFinalView();
   }
 }
 
@@ -623,6 +627,15 @@ void showSetupView() {
   matrix.show();
 }
 
+void showFinalView() {
+  matrix.fillScreen(0);
+  matrix.setFont(&Font5x7Fixed);
+  matrix.setCursor(0, 16);
+  matrix.setTextColor(0x5555FF);
+  matrix.print("Das war es ...");
+  matrix.show();
+}
+
 void showPauseView() {
   matrix.fillScreen(0);
   matrix.setFont(&Font5x7Fixed);
@@ -715,8 +728,6 @@ void configure() {
   groups = prefs.getUShort("g");
   flashingPrepareLight = prefs.getBool("fpl");
   passes = prefs.getUShort("p");
-  Serial.printf("A>reshootArrowCount:%d, arrowCount:%d, warnTime:%d\n", prefs.getUShort("rac"), prefs.getUShort("ac"), prefs.getUShort("wt"));
-  Serial.printf("B>reshootArrowCount:%d, arrowCount:%d, warnTime:%d\n", doc["val"]["rac"], arrowCount, warnTime);
   prefs.end();
 }
 
