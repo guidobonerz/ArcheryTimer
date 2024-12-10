@@ -3,6 +3,8 @@
 Simple Linepower or Battery driven Archery Tournament Timer
 Controllable by Android App or Desktop PC(still in Development)
 
+Supported languages : German, English
+
 
 ### Android App
 
