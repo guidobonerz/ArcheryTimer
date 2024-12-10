@@ -683,6 +683,7 @@ void setActiveColor(bool active) {
 }
 
 void showMainView() {
+  //matrix.drawRGBBitmap()
   matrix.fillScreen(0);
   matrix.setFont(&Font5x7Fixed);
   matrix.setCursor(5, 16);
