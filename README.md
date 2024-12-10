@@ -15,6 +15,7 @@ Supported languages : German, English
 
 
 ### ArcheryTimer Case
-<img src="https://github.com/guidobonerz/IndoorArcheryTimer/blob/main/docs/case.jpg"  width="30%" height="30%">
+<img src="https://github.com/guidobonerz/IndoorArcheryTimer/blob/main/docs/green.jpg"  width="30%" height="30%">
+<img src="https://github.com/guidobonerz/IndoorArcheryTimer/blob/main/docs/yellow.jpg"  width="30%" height="30%">
 
 
