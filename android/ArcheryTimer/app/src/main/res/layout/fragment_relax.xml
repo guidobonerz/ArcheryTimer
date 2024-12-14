@@ -15,7 +15,7 @@
         android:layout_marginBottom="200dp"
         android:text="Keep calm..."
         android:textAlignment="center"
-        android:textColor="#673AB7"
+        android:textColor="#00b3ff"
         android:textSize="60sp"
         android:textStyle="bold" />
 
