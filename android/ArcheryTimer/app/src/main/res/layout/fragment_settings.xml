@@ -94,112 +94,67 @@
 
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/passesText"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/passesText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/passesCount"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:outlineAmbientShadowColor="#FFFFFF"
-                android:textColorHighlight="#FFFFFF"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/arrowCountText"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/arrowCountText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/arrowCount"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:outlineAmbientShadowColor="#FFFFFF"
-                android:textColorHighlight="#FFFFFF"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/shootInTimeText"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/shootInTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/shootInTime"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/prepareTimeText"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/prepareTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/prepareTime"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
+            style="@style/SettingsFieldLayout"
             android:hint="@string/arrowTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/arrowTime"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/warnTimeText"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/warnTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/warnTime"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
-
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
+            style="@style/SettingsFieldLayout"
             android:hint="@string/actionTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/actionTime"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:enabled="false"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField"
+                android:enabled="false" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <CheckBox
@@ -217,18 +172,12 @@
             android:textSize="20dp" />
 
         <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsField"
-            android:hint="@string/flashingInterval"
-            app:cursorColor="@color/white">
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/flashingInterval">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/editTextNumberDecimal"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:backgroundTint="@color/field"
-                android:inputType="numberDecimal"
-                android:textSize="25dp"
-                android:textStyle="bold" />
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <LinearLayout
@@ -271,7 +220,5 @@
                 android:src="@drawable/baseline_campaign_50"
                 app:tint="#03A9F4" />
         </LinearLayout>
-
     </LinearLayout>
-
 </ScrollView>

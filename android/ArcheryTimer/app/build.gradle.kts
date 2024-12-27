@@ -32,7 +32,8 @@ android {
 }
 
 dependencies {
-
+    compileOnly("com.github.marc-christian-schulze.structs4java:structs4java-maven-plugin:1.2.0")
+    implementation ("com.github.mik3y:usb-serial-for-android:3.8.1")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")

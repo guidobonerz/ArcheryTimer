@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/orange" /> <!-- Farbe des Handles -->
+    <size android:width="8dp" android:height="16dp" /> <!-- Größe des Handles -->
+    <corners android:topRightRadius="8dp" />
+</shape>

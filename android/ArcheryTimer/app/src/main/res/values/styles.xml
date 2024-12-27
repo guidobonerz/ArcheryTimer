@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="SettingsField" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+    <style name="SettingsFieldLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
         <item name="android:textColor">@color/white</item>
         <item name="android:textSize">16dp</item>
         <item name="android:textStyle">bold</item>
@@ -9,8 +9,25 @@
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="boxStrokeColor">@color/stroke_color</item>
-        <item name="hintTextColor">@color/hint_text_color</item>
-        <item name="android:textColorHint">@color/white</item>
+        <item name="hintTextColor">@color/orange</item>
+        <item name="android:textColorHint">@color/orange</item>
+        <item name="cursorColor">@color/white</item>
+    </style>
 
+
+    <style name="SettingsField" parent="Widget.AppCompat.EditText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:backgroundTint">@color/field</item>
+        <item name="android:inputType">numberDecimal</item>
+        <item name="android:textSize">25dp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSelectHandleLeft">@drawable/middle_handle</item>
+        <item name="android:textSelectHandleRight">@drawable/middle_handle</item>
+        <item name="android:textSelectHandle">@drawable/middle_handle</item>
     </style>
 </resources>
+
+
+
+
