@@ -5,6 +5,8 @@ Controllable by Android App or Desktop PC(still in Development)
 
 Supported languages : German, English
 
+ToDo:
+change upd communication to espnow
 
 ### Android App
 
