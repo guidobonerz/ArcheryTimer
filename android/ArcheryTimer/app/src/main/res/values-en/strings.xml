@@ -30,6 +30,7 @@
     <string name="volumeText">Volume</string>
     <string name="flashingPrepareLight">Flashing prepare phase</string>
     <string name="flashingInterval">Flash interval/ms</string>
+    <string name="alternatingShots">Shoot alternating</string>
 
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournament</string>

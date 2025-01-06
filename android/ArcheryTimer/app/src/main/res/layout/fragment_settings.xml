@@ -13,21 +13,22 @@
         android:background="#000000"
         android:foregroundTint="#FFFFFF"
         android:orientation="vertical"
-        android:padding="16dp"
+        android:padding="10dp"
         android:tag="SettingsFragment"
         tools:context=".SettingsFragment">
+
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:paddingTop="30dp">
+            android:paddingTop="15dp">
 
             <TextView
                 android:id="@+id/textView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginRight="10dp"
+                android:layout_marginRight="20dp"
                 android:text="@string/groupsText"
                 android:textColor="@color/white"
                 android:textSize="25sp"
@@ -158,6 +159,21 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <CheckBox
+            android:id="@+id/alternatingShots"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@null"
+            android:button="@null"
+            android:checked="true"
+            android:drawableStart="@drawable/check_btn"
+            android:hint="@string/alternatingShots"
+            android:paddingTop="5dp"
+            android:drawablePadding="10dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="@color/white"
+            android:textSize="20dp" />
+
+        <CheckBox
             android:id="@+id/flashingPrepareLight"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -166,6 +182,7 @@
             android:checked="true"
             android:drawableStart="@drawable/check_btn"
             android:hint="@string/flashingPrepareLight"
+            android:drawablePadding="10dp"
             android:paddingTop="20dp"
             android:textColor="#FFFFFF"
             android:textColorHint="@color/white"

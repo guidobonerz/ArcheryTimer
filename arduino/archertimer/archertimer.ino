@@ -12,8 +12,15 @@
 #include <Wire.h>
 #include <DFPlayerMini_Fast.h>
 #include "Preferences.h"
-#include "Auth.h"
 #include "logo1.h"
+
+#if __has_include("Auth.h")
+#include "Auth.h"
+#else
+#warning "Please create Auth.h with SSID & PASS defined"
+#define WIFI_SSID "your-ssid"
+#define WIFI_PASS "your-password"
+#endif
 
 #define RW_MODE false
 #define RO_MODE true
@@ -172,8 +179,8 @@ void setup(void) {
 
   if (wifiEnabled) {
     Serial.print("Attempting to connect to SSID: ");
-    Serial.println(ssid);
-    WiFi.begin(ssid, pass);
+    Serial.println(WIFI_SSID);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
     wifiActive = true;
 
 
@@ -232,7 +239,7 @@ void setup(void) {
 
   soundActive = true;
 
-  //showIntro();
+  showIntro();
   showMainView();
 
   matrix.setTextWrap(false);
@@ -809,34 +816,26 @@ void showIntro() {
   r3 = 3;
   r4 = 2;
   r5 = 1;
-  uint16_t c = 15;
-  //while (r5 < 150) {
-  matrix.fillCircle(64, 32, (uint16_t)r1, White);
-  matrix.fillCircle(64, 32, (uint16_t)r2, Black);
-  matrix.fillCircle(64, 32, (uint16_t)r3, Blue);
-  matrix.fillCircle(64, 32, (uint16_t)r4, Red);
-  matrix.fillCircle(64, 32, (uint16_t)r5, matrix.color565(c, c, 0));
-  matrix.show();
-  /*
-    c -= 0.3;
-    delay(40);
-    r1 = r1 * 1.3;
-    r2 = r2 * 1.3;
-    r3 = r3 * 1.3;
-    r4 = r4 * 1.3;
-    r5 = r5 * 1.3;
-  }
-  */
-  //matrix.fillScreen(0);
-  //matrix.show();
-
-  /*
-  while (c > 0) {
-    matrix.fillScreen(matrix.color565(c, c, 0));
+  uint16_t c = 140;
+  while (r5 < 138) {
+    matrix.fillCircle(64, 32, (uint16_t)r1, White);
+    matrix.fillCircle(64, 32, (uint16_t)r2, Black);
+    matrix.fillCircle(64, 32, (uint16_t)r3, Blue);
+    matrix.fillCircle(64, 32, (uint16_t)r4, Red);
+    matrix.fillCircle(64, 32, (uint16_t)r5, matrix.color565(c, c, 0));
     matrix.show();
-    c -= 2;
-    //delay(10);
+    if (r5 > 10) {
+      c = c - 9;
+    }
+
+    delay(40);
+    r1 = r1 * 1.2;
+    r2 = r2 * 1.2;
+    r3 = r3 * 1.2;
+    r4 = r4 * 1.2;
+    r5 = r5 * 1.2;
   }
-  */
-  //showMainView();
+  Serial.printf("%d\n",c);
+  matrix.fillScreen(0);
+  matrix.show();
 }

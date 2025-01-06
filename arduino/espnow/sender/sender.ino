@@ -4,6 +4,7 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <WiFi.h>
+#include <ArduinoJson.h>
 char receiveBuffer[255];
 #define NUM_LEDS 1
 #define DATA_PIN 8

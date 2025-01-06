@@ -30,6 +30,7 @@
     <string name="volumeText">Lautstärke</string>
     <string name="flashingPrepareLight">Vorbereitungphase blinkt</string>
     <string name="flashingInterval">Blinkinterval/ms</string>
+    <string name="alternatingShots">Alternierend schiessen</string>
 
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournier</string>
