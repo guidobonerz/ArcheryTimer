@@ -1,8 +1,12 @@
 package de.drazil.archerytimer;
 
 import android.app.AlertDialog;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -10,6 +14,9 @@ import android.graphics.ColorFilter;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.Drawable;
+import android.hardware.usb.UsbDevice;
+import android.hardware.usb.UsbDeviceConnection;
+import android.hardware.usb.UsbManager;
 import android.os.Bundle;
 import android.os.VibratorManager;
 import android.util.Log;
@@ -27,13 +34,34 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialPort;
+import com.hoho.android.usbserial.driver.UsbSerialProber;
+
 import org.json.JSONObject;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 import de.drazil.archerytimer.udp.UDPSender;
 import de.drazil.archerytimer.udp.UDPServer;
 
 
 public class TournamentFragment extends Fragment implements IRemoteControl, IRemoteView {
+
+    private static UsbDeviceConnection connection;
+    private static List<UsbSerialDriver> availableDrivers;
+    private static UsbSerialDriver driver;
+    private static UsbSerialPort port;
+    private static UsbManager manager;
+    private static Map<String, UsbDevice> devices;
+    private static UsbDevice device = null;
+    private static PendingIntent pi;
+
+
+    private static Object porting = new Object();
+    private static String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
 
 
     private boolean running = false;
@@ -179,6 +207,38 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
 
     }
 
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if (ACTION_USB_PERMISSION.equals(action)) {
+
+                synchronized (this) {
+                    if (manager.hasPermission(device)) {
+                        //connect();
+                    }
+                }
+            }
+        }
+    };
+
+    public void connect() {
+
+        availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+        driver = availableDrivers.get(0);
+        connection = manager.openDevice(driver.getDevice());
+        port = driver.getPorts().get(0);
+
+        try {
+            synchronized (porting) {
+                port.open(connection);
+                port.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public TournamentFragment() {
 
@@ -189,6 +249,12 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
         super.onCreate(savedInstanceState);
         Log.i("UDPServer", "start");
         UDPServer.start();
+
+        IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+        //getActivity().registerReceiver(receiver, filter);
+
+        manager = (UsbManager) getActivity().getApplicationContext().getSystemService(Context.USB_SERVICE);
+
 
     }
 
@@ -206,7 +272,38 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
     }
 
     private void sendRun(long startTime) {
+        // Find all available drivers from attached devices.
 
+
+        //  ProbeTable customTable = new ProbeTable();
+        //  customTable.addProduct(0x1234, 0x0001, FtdiSerialDriver.class);
+
+
+        //UsbSerialProber prober = new UsbSerialProber(customTable);
+        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+        if (availableDrivers.isEmpty()) {
+            return;
+        }
+
+
+        // Open a connection to the first available driver.
+        UsbSerialDriver driver = availableDrivers.get(0);
+        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
+        if (connection == null) {
+            // add UsbManager.requestPermission(driver.getDevice(), ..) handling here
+            return;
+        }
+
+        UsbSerialPort port = driver.getPorts().get(0); // Most devices have just one port (port 0)
+        try {
+            port.open(connection);
+            port.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            port.write("start\n".getBytes(), 2000);
+            port.close();
+        } catch (Exception ex) {
+            Log.e("Error", ex.getMessage());
+        }
 
         JSONObject payload = new JSONObject();
         try {
@@ -237,7 +334,31 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
 
     private void sendStop(long startTime) {
 
+        // Find all available drivers from attached devices.
 
+        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        List<UsbSerialDriver> availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(manager);
+        if (availableDrivers.isEmpty()) {
+            return;
+        }
+
+        // Open a connection to the first available driver.
+        UsbSerialDriver driver = availableDrivers.get(0);
+        UsbDeviceConnection connection = manager.openDevice(driver.getDevice());
+        if (connection == null) {
+            // add UsbManager.requestPermission(driver.getDevice(), ..) handling here
+            return;
+        }
+
+        UsbSerialPort port = driver.getPorts().get(0); // Most devices have just one port (port 0)
+        try {
+            port.open(connection);
+            port.setParameters(9600, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE);
+            port.write("stop\n".getBytes(), 2000);
+            port.close();
+        } catch (Exception ex) {
+            Log.e("Error", ex.getMessage());
+        }
         JSONObject payload = new JSONObject();
         try {
             JSONObject valuesObject = new JSONObject();

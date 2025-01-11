@@ -16,10 +16,27 @@ uint8_t c = 0;
 uint8_t receiverAddress[] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
 esp_now_peer_info_t peerInfo;
 
-typedef struct message {
-  char text[64];
-  bool state;
-} command;
+typedef struct {
+  uint8_t source               
+	uint8_t command
+	uint8_t view   
+	uint8_t passes 
+	uint8_t prepareTime          
+	uint8_t arrowCount           
+	uint8_t reshootArrowCount    
+	uint8_t warnTime             
+	uint8_t groups               
+	bool flashingPrepareLight 
+} settings;
+
+typedef struct {
+  uint8_t currentPass;
+  uint8_t currentGroup;
+  uint8_t currentPrepareTime;
+  uint8_t currentActionTime;
+  uint8_t currentGroupSet;
+} status;
+
 
 command myCommand;
 void commandSent(const uint8_t *macAddr, esp_now_send_status_t status) {

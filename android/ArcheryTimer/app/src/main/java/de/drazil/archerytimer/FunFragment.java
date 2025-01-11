@@ -62,11 +62,7 @@ public class FunFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        try {
-            Sender.broadcast("!system:0:0:0!");
-        } catch (Exception ex) {
-            Log.e("Error", ex.getMessage());
-        }
+
         return inflater.inflate(R.layout.fragment_fun, container, false);
     }
 
