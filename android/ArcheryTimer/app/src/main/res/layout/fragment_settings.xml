@@ -114,11 +114,21 @@
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/SettingsFieldLayout"
-            android:hint="@string/shootInTimeText">
+            android:hint="@string/arrowTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/shootInTime"
+                android:id="@+id/arrowTime"
                 style="@style/SettingsField" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/SettingsFieldLayout"
+            android:hint="@string/actionTimeText">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/actionTime"
+                style="@style/SettingsField"
+                android:enabled="false" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
@@ -127,15 +137,6 @@
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/prepareTime"
-                style="@style/SettingsField" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/SettingsFieldLayout"
-            android:hint="@string/arrowTimeText">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/arrowTime"
                 style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -150,12 +151,11 @@
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/SettingsFieldLayout"
-            android:hint="@string/actionTimeText">
+            android:hint="@string/shootInTimeText">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/actionTime"
-                style="@style/SettingsField"
-                android:enabled="false" />
+                android:id="@+id/shootInTime"
+                style="@style/SettingsField" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <CheckBox
@@ -166,12 +166,12 @@
             android:button="@null"
             android:checked="true"
             android:drawableStart="@drawable/check_btn"
+            android:drawablePadding="10dp"
             android:hint="@string/alternatingShots"
             android:paddingTop="5dp"
-            android:drawablePadding="10dp"
             android:textColor="#FFFFFF"
             android:textColorHint="@color/white"
-            android:textSize="20dp" />
+            android:textSize="20sp" />
 
         <CheckBox
             android:id="@+id/flashingPrepareLight"
@@ -181,12 +181,12 @@
             android:button="@null"
             android:checked="true"
             android:drawableStart="@drawable/check_btn"
-            android:hint="@string/flashingPrepareLight"
             android:drawablePadding="10dp"
+            android:hint="@string/flashingPrepareLight"
             android:paddingTop="20dp"
             android:textColor="#FFFFFF"
             android:textColorHint="@color/white"
-            android:textSize="20dp" />
+            android:textSize="20sp" />
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/SettingsFieldLayout"
@@ -210,7 +210,7 @@
                 android:gravity="center_vertical"
                 android:text="@string/volumeText"
                 android:textColor="@color/white"
-                android:textSize="20dp" />
+                android:textSize="20sp" />
 
             <com.google.android.material.slider.Slider
                 android:id="@+id/volumeSlider"
@@ -237,5 +237,15 @@
                 android:src="@drawable/baseline_campaign_50"
                 app:tint="#03A9F4" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/signalSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/signalSettings"
+            android:textColor="@color/white"
+            android:textSize="20sp"/>
+
+
     </LinearLayout>
 </ScrollView>

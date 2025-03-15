@@ -1,18 +1,16 @@
 package de.drazil.archerytimer;
 
+import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -20,6 +18,9 @@ import android.widget.ImageButton;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.material.slider.Slider;
 
@@ -34,6 +35,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
     private RadioButton group1 = null;
     private RadioButton group2 = null;
     private RadioButton group3 = null;
+    private TextView soundSettingsView = null;
 
     public SettingsFragment() {
         // Required empty public constructor
@@ -50,9 +52,24 @@ public class SettingsFragment extends Fragment implements IRemoteView {
         return inflater.inflate(R.layout.fragment_settings, container, false);
     }
 
+    private void showSoundDialog() {
+        final Dialog dialog = new Dialog(getActivity());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(true);
+        dialog.setContentView(R.layout.fragment_sounds);
+        dialog.show();
+    }
+
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        soundSettingsView = view.findViewById(R.id.signalSettings);
+        soundSettingsView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showSoundDialog();
+            }
+        });
         group1 = (RadioButton) view.findViewById(R.id.modeAB);
         group2 = (RadioButton) view.findViewById(R.id.modeABCD);
         //group3 = (RadioButton) view.findViewById(R.id.modeABCDEF);
@@ -246,7 +263,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
                 try {
                     JSONObject payload = new JSONObject();
                     payload.put("cmd", "testsignal");
-                    UDPSender.broadcastJSON(payload,System.currentTimeMillis());
+                    UDPSender.broadcastJSON(payload, System.currentTimeMillis());
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -270,14 +287,14 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             @Override
             public void onStopTrackingTouch(@NonNull Slider slider) {
                 float volume = sharedPreferences.getFloat(getString(R.string.volumeStore), 0);
-                Log.i("volume",String.valueOf(volume));
+                Log.i("volume", String.valueOf(volume));
                 try {
                     JSONObject valuesObject = new JSONObject();
                     valuesObject.put("val", (int) (volume));
                     JSONObject payload = new JSONObject();
                     payload.put("cmd", "volume");
                     payload.put("val", valuesObject);
-                    UDPSender.broadcastJSON(payload,System.currentTimeMillis());
+                    UDPSender.broadcastJSON(payload, System.currentTimeMillis());
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -286,7 +303,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
 
         final CheckBox flashingPrepareLightView = (CheckBox) view.findViewById(R.id.flashingPrepareLight);
         flashingPrepareLightView.setChecked(sharedPreferences.getBoolean(getString(R.string.flashingPrepareLightStore), true));
-        flashingPrepareLightView.setOnCheckedChangeListener(new CheckBox.OnCheckedChangeListener(){
+        flashingPrepareLightView.setOnCheckedChangeListener(new CheckBox.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                 SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -308,7 +325,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt(getString(R.string.actionTimeStore), actionTime);
         editor.apply();
-        UDPSender.sendConfiguration(sharedPreferences,System.currentTimeMillis());
+        UDPSender.sendConfiguration(sharedPreferences, System.currentTimeMillis());
     }
 
     @Override

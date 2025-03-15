@@ -28,6 +28,7 @@
     <string name="groupText">Gruppe</string>
     <string name="groupsText">Gruppen</string>
     <string name="volumeText">Lautstärke</string>
+    <string name="soundText">Signalton</string>
     <string name="flashingPrepareLight">Vorbereitungphase blinkt</string>
     <string name="flashingInterval">Blinkinterval/ms</string>
     <string name="alternatingShots">Alternierend schiessen</string>
@@ -40,6 +41,8 @@
     <string name="title1Text">Bogensport</string>
     <string name="title2Text">Tournier Timer</string>
     <string name="sloganText">Alle ins Gold</string>
-
-
+    <string name="signalSettings">Signalton einstellen \u00bb</string>
+    <string name="selectSound">Signale</string>
+    <string name="whistle">Pfeife</string>
+    <string name="sine">Sinus</string>
 </resources>

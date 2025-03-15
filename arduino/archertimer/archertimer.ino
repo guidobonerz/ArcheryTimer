@@ -88,6 +88,7 @@ uint16_t currentPasses;
 uint8_t currentGroup;
 uint8_t groupSet;
 uint8_t displayNo = 0;
+uint8_t signalOffset = 0;
 uint16_t syncDelay;
 
 
@@ -102,6 +103,8 @@ const char* SETUP = "setup";
 const char* SHOOT_IN = "shoot_in";
 const char* TOURNAMENT = "tournament";
 const char* RE_SHOOT = "re_shoot";
+const char* SIGNAL_SINE = "sine";
+const char* SIGNAL_WHISTLE = "whistle";
 
 const char* RUN = "run";
 const char* PAUSE = "pause";
@@ -109,6 +112,7 @@ const char* STOP = "stop";
 const char* RESET = "reset";
 const char* EMERGENCY = "emergency";
 const char* VOLUME = "volume";
+const char* SIGNAL = "signal";
 const char* TEST_SIGNAL = "testsignal";
 const char* STATE = "state";
 const char* CONFIG = "config";
@@ -340,6 +344,15 @@ void loop(void) {
         } else if (strcmp(command, EMERGENCY) == 0) {
         } else if (strcmp(command, VOLUME) == 0) {
           myDFPlayer.volume(doc["val"]["val"]);
+        } else if (strcmp(command, SIGNAL) == 0 && phase == IdlePhase) {
+          const char* signalName = doc["val"]["val"];
+          if (strcmp(signalName, SIGNAL_SINE) == 0) {
+            signalOffset = 0;
+          } else if (strcmp(signalName, SIGNAL_WHISTLE) == 0) {
+            signalOffset = 3;
+          } else {
+            signalOffset = 0;
+          }
         } else if (strcmp(command, TEST_SIGNAL) == 0 && phase == IdlePhase) {
           myDFPlayer.play(1);
         }
@@ -835,7 +848,7 @@ void showIntro() {
     r4 = r4 * 1.2;
     r5 = r5 * 1.2;
   }
-  Serial.printf("%d\n",c);
+  Serial.printf("%d\n", c);
   matrix.fillScreen(0);
   matrix.show();
 }
