@@ -45,4 +45,7 @@
     <string name="whistle">Whistle</string>
     <string name="sine">Sine</string>
     <string name="signalSettings">Signal Settings \u00bb</string>
+    <string name="ab">AB</string>
+    <string name="cd">CD</string>
+    <string name="abcd">AB-CD</string>
 </resources>

@@ -10,7 +10,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
-#include <DFPlayerMini_Fast.h>
+ #include <DFPlayerMini_Fast.h>
 #include "Preferences.h"
 #include "logo1.h"
 
@@ -715,7 +715,7 @@ void showMainView() {
   matrix.setFont(&muMatrix8ptRegular);
   matrix.setTextColor(0x5555FF);
   matrix.setCursor(46, 8);
-  matrix.print("BSV Eppinghofen");
+  matrix.print("BSV Eppinghoven");
   matrix.setCursor(67, 20);
   matrix.print("1743 e.V.");
   matrix.setTextColor(Orange2);

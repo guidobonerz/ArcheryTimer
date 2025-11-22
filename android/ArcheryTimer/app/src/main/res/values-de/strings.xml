@@ -45,4 +45,7 @@
     <string name="selectSound">Signale</string>
     <string name="whistle">Pfeife</string>
     <string name="sine">Sinus</string>
+    <string name="ab">AB</string>
+    <string name="cd">CD</string>
+    <string name="abcd">AB-CD</string>
 </resources>

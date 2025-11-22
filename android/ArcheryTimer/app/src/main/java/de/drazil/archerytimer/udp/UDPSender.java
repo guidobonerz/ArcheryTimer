@@ -15,8 +15,6 @@ import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.List;
 
-import de.drazil.archerytimer.R;
-
 public class UDPSender {
 
 

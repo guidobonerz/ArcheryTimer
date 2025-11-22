@@ -46,6 +46,9 @@
     <string name="selectSound">Signals</string>
     <string name="whistle">Pfeife</string>
     <string name="sine">Sine</string>
+    <string name="ab">AB</string>
+    <string name="cd">CD</string>
+    <string name="abcd">AB-CD</string>
 
 
 
