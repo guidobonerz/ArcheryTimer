@@ -99,7 +99,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
 
 
         public void reset() {
-            SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+            SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
             group = sharedPreferences.getInt(getString(R.string.groupStore), 1);
             prepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0);
             remainingPrepareTime = prepareTime;
@@ -251,7 +251,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
     }
 
     private void sendReset(long startTime) {
-        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
         UDPSender.sendConfiguration(sharedPreferences, System.currentTimeMillis());
         JSONObject payload = new JSONObject();
         try {
@@ -297,7 +297,8 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
                 hold = false;
                 toggleButton.setImageResource(R.drawable.play);
             } else if (command.equalsIgnoreCase("state")) {
-                SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+                //SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
                 setGroupAndPassInfo(json.getInt("cg") == 1 ? "AB" : "CD", json.getInt("cp"), sharedPreferences.getInt(getString(R.string.passesCountStore), 0));
                 progress.setCurrentGroup(json.getInt("cg"));
                 progress.setRemainingPrepareTime(json.getInt("cpt"));
@@ -318,7 +319,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
     @Override
     public void onViewCreated(@NonNull View rootView, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(rootView, savedInstanceState);
-        final VibratorManager vibrator = (VibratorManager) getActivity().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
+        final VibratorManager vibrator = (VibratorManager) requireActivity().getSystemService(Context.VIBRATOR_MANAGER_SERVICE);
         progress = new ProgressControl();
         imageView = (ImageView) rootView.findViewById(R.id.timerProgress);
         imageView.setImageDrawable(progress);
@@ -327,7 +328,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int id) {
                 long startTime = System.currentTimeMillis();
-                SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
                 Log.i("button", String.valueOf(id));
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.reshootArrowCountStore), id);
@@ -341,7 +342,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
             @Override
             public void onCheckedChanged(RadioGroup radioGroup, int id) {
                 long startTime = System.currentTimeMillis();
-                SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+                SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
                 reshootAction = false;
                 reshootActionGroup.setVisibility(View.INVISIBLE);
                 String subViewName = getSubViewName();
@@ -365,7 +366,7 @@ public class TournamentFragment extends Fragment implements IRemoteControl, IRem
             }
         });
 
-        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
         int arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
         RadioButton radioButton = null;
         for (int i = 1; i < arrowCount + 1; i++) {

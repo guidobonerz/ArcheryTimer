@@ -28,6 +28,7 @@
     <string name="groupText">Group</string>
     <string name="groupsText">Groups</string>
     <string name="volumeText">Volume</string>
+    <string name="soundText">Signal sound</string>
     <string name="flashingPrepareLight">Flashing prepare phase</string>
     <string name="flashingInterval">Flash interval/ms</string>
     <string name="alternatingShots">Shoot alternating</string>
@@ -40,5 +41,11 @@
     <string name="title1Text">Archery</string>
     <string name="title2Text">Tournament Timer</string>
     <string name="sloganText">All in Gold</string>
-
+    <string name="selectSound">Signals</string>
+    <string name="whistle">Whistle</string>
+    <string name="sine">Sine</string>
+    <string name="signalSettings">Signal Settings \u00bb</string>
+    <string name="ab">AB</string>
+    <string name="cd">CD</string>
+    <string name="abcd">AB-CD</string>
 </resources>

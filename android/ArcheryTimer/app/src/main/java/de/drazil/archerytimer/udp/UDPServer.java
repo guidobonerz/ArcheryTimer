@@ -6,7 +6,6 @@ import org.json.JSONObject;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import de.drazil.archerytimer.IRemoteControl;
@@ -17,7 +16,7 @@ public class UDPServer implements Runnable {
     private IRemoteControl rc = null;
     private boolean serverRunning = false;
     private final int MAX_UDP_DATAGRAM_LEN = 1500;
-    private Pattern pattern = Pattern.compile("(archery_timer_display)!(.*)");
+    private final Pattern pattern = Pattern.compile("(archery_timer_display)!(.*)");
     private static UDPServer server = null;
     private static Thread serverThread = null;
     private DatagramSocket udpSocket = null;

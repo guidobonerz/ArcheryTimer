@@ -28,6 +28,7 @@
     <string name="groupText">Gruppe</string>
     <string name="groupsText">Gruppen</string>
     <string name="volumeText">Lautstärke</string>
+    <string name="soundText">Signalton</string>
     <string name="flashingPrepareLight">Vorbereitungphase blinkt</string>
     <string name="flashingInterval">Blinkinterval/ms</string>
     <string name="alternatingShots">Alternierend schiessen</string>
@@ -40,8 +41,15 @@
     <string name="title1Text">Bogensport</string>
     <string name="title2Text">Tournier Timer</string>
     <string name="sloganText">Alle ins Gold</string>
-    <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <!--<string name="signalSettings">Signal Settings \u2197</string>-->
+    <string name="signalSettings">Signal Settings \u00bb</string>
+    <string name="selectSound">Signals</string>
+    <string name="whistle">Pfeife</string>
+    <string name="sine">Sine</string>
+    <string name="ab">AB</string>
+    <string name="cd">CD</string>
+    <string name="abcd">AB-CD</string>
+
 
 
 </resources>

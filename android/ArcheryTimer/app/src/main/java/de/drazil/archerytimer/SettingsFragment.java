@@ -1,18 +1,16 @@
 package de.drazil.archerytimer;
 
+import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -20,6 +18,9 @@ import android.widget.ImageButton;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 
 import com.google.android.material.slider.Slider;
 
@@ -29,11 +30,6 @@ import de.drazil.archerytimer.udp.UDPSender;
 
 
 public class SettingsFragment extends Fragment implements IRemoteView {
-
-    private RadioGroup radioGroup = null;
-    private RadioButton group1 = null;
-    private RadioButton group2 = null;
-    private RadioButton group3 = null;
 
     public SettingsFragment() {
         // Required empty public constructor
@@ -50,9 +46,29 @@ public class SettingsFragment extends Fragment implements IRemoteView {
         return inflater.inflate(R.layout.fragment_settings, container, false);
     }
 
-    public void onViewCreated(View view, Bundle savedInstanceState) {
+    private void showSoundDialog() {
+        final Dialog dialog = new Dialog(requireActivity());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(true);
+        dialog.setContentView(R.layout.fragment_sounds);
+        dialog.show();
+    }
+
+    public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
+        RadioGroup radioGroup = null;
+        RadioButton group1 = null;
+        RadioButton group2 = null;
+        RadioButton group3 = null;
+        TextView soundSettingsView = null;
+        soundSettingsView = view.findViewById(R.id.signalSettings);
+        soundSettingsView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showSoundDialog();
+            }
+        });
         group1 = (RadioButton) view.findViewById(R.id.modeAB);
         group2 = (RadioButton) view.findViewById(R.id.modeABCD);
         //group3 = (RadioButton) view.findViewById(R.id.modeABCDEF);
@@ -61,18 +77,18 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             group1.setChecked(true);
             group2.setChecked(false);
             //group3.setChecked(false);
-            selectedGroupText.setText("AB");
+            selectedGroupText.setText(R.string.ab);
         } else if (sharedPreferences.getInt(getString(R.string.groupStore), 0) == 2) {
             group1.setChecked(false);
             group2.setChecked(true);
             //group3.setChecked(false);
-            selectedGroupText.setText("AB-CD");
-        } else {
+            selectedGroupText.setText(R.string.abcd);
+        } /*else {
             group1.setChecked(false);
             group2.setChecked(false);
             //group3.setChecked(true);
             selectedGroupText.setText("AB-CD-EF");
-        }
+        }*/
         radioGroup = (RadioGroup) view.findViewById(R.id.modeGroup);
         radioGroup.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
@@ -81,14 +97,14 @@ public class SettingsFragment extends Fragment implements IRemoteView {
                 final TextView selectedGroupText = (TextView) view.findViewById(R.id.groupSelection);
                 if (i == R.id.modeAB) {
                     editor.putInt(getString(R.string.groupStore), 1);
-                    selectedGroupText.setText("AB");
+                    selectedGroupText.setText(R.string.ab);
                 } else if (i == R.id.modeABCD) {
                     editor.putInt(getString(R.string.groupStore), 2);
-                    selectedGroupText.setText("AB-CD");
-                } else {
+                    selectedGroupText.setText(R.string.abcd);
+                } /*else {
                     editor.putInt(getString(R.string.groupStore), 3);
                     selectedGroupText.setText("AB-CD-EF");
-                }
+                }*/
                 editor.apply();
                 calcActionTime(view);
             }
@@ -105,7 +121,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(passesCountView.getText().toString());
+                    value = Integer.parseInt(passesCountView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.passesCountStore), value);
@@ -128,7 +144,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(arrowCountView.getText().toString());
+                    value = Integer.parseInt(arrowCountView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.arrowCountStore), value);
@@ -153,7 +169,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(shootInTimeView.getText().toString());
+                    value = Integer.parseInt(shootInTimeView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.shootInTimeStore), value);
@@ -179,7 +195,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(prepareTimeView.getText().toString());
+                    value = Integer.parseInt(prepareTimeView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.prepareTimeStore), value);
@@ -202,7 +218,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(arrowTimeView.getText().toString());
+                    value = Integer.parseInt(arrowTimeView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.arrowTimeStore), value);
@@ -227,7 +243,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
                 int value = 0;
                 if (charSequence.length() > 0) {
-                    value = Integer.valueOf(warnTimeView.getText().toString());
+                    value = Integer.parseInt(warnTimeView.getText().toString());
                 }
                 SharedPreferences.Editor editor = sharedPreferences.edit();
                 editor.putInt(getString(R.string.warnTimeStore), value);
@@ -246,7 +262,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
                 try {
                     JSONObject payload = new JSONObject();
                     payload.put("cmd", "testsignal");
-                    UDPSender.broadcastJSON(payload,System.currentTimeMillis());
+                    UDPSender.broadcastJSON(payload, System.currentTimeMillis());
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -270,14 +286,14 @@ public class SettingsFragment extends Fragment implements IRemoteView {
             @Override
             public void onStopTrackingTouch(@NonNull Slider slider) {
                 float volume = sharedPreferences.getFloat(getString(R.string.volumeStore), 0);
-                Log.i("volume",String.valueOf(volume));
+                Log.i("volume", String.valueOf(volume));
                 try {
                     JSONObject valuesObject = new JSONObject();
                     valuesObject.put("val", (int) (volume));
                     JSONObject payload = new JSONObject();
                     payload.put("cmd", "volume");
                     payload.put("val", valuesObject);
-                    UDPSender.broadcastJSON(payload,System.currentTimeMillis());
+                    UDPSender.broadcastJSON(payload, System.currentTimeMillis());
                 } catch (Exception ex) {
                     Log.e("Error", ex.getMessage());
                 }
@@ -286,7 +302,7 @@ public class SettingsFragment extends Fragment implements IRemoteView {
 
         final CheckBox flashingPrepareLightView = (CheckBox) view.findViewById(R.id.flashingPrepareLight);
         flashingPrepareLightView.setChecked(sharedPreferences.getBoolean(getString(R.string.flashingPrepareLightStore), true));
-        flashingPrepareLightView.setOnCheckedChangeListener(new CheckBox.OnCheckedChangeListener(){
+        flashingPrepareLightView.setOnCheckedChangeListener(new CheckBox.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                 SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -301,14 +317,14 @@ public class SettingsFragment extends Fragment implements IRemoteView {
     }
 
     private void calcActionTime(View view) {
-        SharedPreferences sharedPreferences = getActivity().getPreferences(Context.MODE_PRIVATE);
+        SharedPreferences sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE);
         final EditText actionTimeView = (EditText) view.findViewById(R.id.actionTime);
         int actionTime = sharedPreferences.getInt(getString(R.string.arrowTimeStore), 0) * sharedPreferences.getInt(getString(R.string.arrowCountStore), 0);
         actionTimeView.setText(String.valueOf(actionTime));
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt(getString(R.string.actionTimeStore), actionTime);
         editor.apply();
-        UDPSender.sendConfiguration(sharedPreferences,System.currentTimeMillis());
+        UDPSender.sendConfiguration(sharedPreferences, System.currentTimeMillis());
     }
 
     @Override
