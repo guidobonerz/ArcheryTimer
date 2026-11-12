@@ -50,6 +50,15 @@
     <string name="cd">CD</string>
     <string name="abcd">AB-CD</string>
 
+    <string name="displaysTitle">Displays</string>
+    <string name="displaysOnline">Displays: %1$d von %2$d online</string>
+    <string name="noDisplays">Noch kein Display gemeldet</string>
+    <string name="lastSeenSeconds">zuletzt vor %1$ds</string>
+    <string name="connectionLogTitle">Verbindungsprotokoll</string>
+    <string name="clearLog">Leeren</string>
+    <string name="displayReconnected">Display %1$d wieder verbunden</string>
+    <string name="displaysOffline">%1$d Display(s) nicht erreichbar</string>
+
 
 
 </resources>
