@@ -1,5 +1,6 @@
 package de.drazil.archerytimer
 
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
@@ -16,6 +17,8 @@ import androidx.fragment.app.Fragment
 import de.drazil.archerytimer.net.ConnectionLog
 import de.drazil.archerytimer.net.DisplayRegistry
 import de.drazil.archerytimer.udp.UDPSender
+import org.json.JSONObject
+import java.util.TimeZone
 
 /**
  * Shows which displays are on the network and the protocol of everything that
@@ -126,6 +129,13 @@ class StateFragment : Fragment(), IRemoteView, DisplayRegistry.Listener, Connect
 
     override val currentView: String
         get() = "state"
+
+    /**
+     * The status view of the displays shows the time of day. Their clocks run
+     * in UTC and they know no time zone, so the offset of this phone goes along.
+     */
+    override fun viewPayload(sharedPreferences: SharedPreferences): JSONObject? =
+        JSONObject().put("tz", TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000)
 
     companion object {
         private const val REFRESH_INTERVAL_MS = 1000L

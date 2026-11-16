@@ -36,6 +36,8 @@
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournier</string>
     <string name="setupViewText">Einstellungen</string>
+    <string name="lunchBreakText">Mittagspause</string>
+    <string name="lunchEndText">Ende Mittagspause</string>
     <string name="stateViewText">Status</string>
 
     <string name="title1Text">Bogensport</string>

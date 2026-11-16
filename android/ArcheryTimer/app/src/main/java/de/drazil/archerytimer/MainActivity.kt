@@ -215,7 +215,12 @@ class MainActivity : AppCompatActivity(), DisplayRegistry.Listener, NetworkMonit
                 ft.show(f)
             }
             ft.commit()
-            UDPSender.controlDisplay((f as IRemoteView).currentView, null, System.currentTimeMillis())
+            val remoteView = f as IRemoteView
+            UDPSender.controlDisplay(
+                remoteView.currentView,
+                remoteView.viewPayload(getPreferences(Context.MODE_PRIVATE)),
+                System.currentTimeMillis()
+            )
         } catch (ex: Exception) {
             Log.e("Error", ex.toString())
         }

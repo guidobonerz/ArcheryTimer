@@ -2,6 +2,7 @@ package de.drazil.archerytimer
 
 import android.app.AlertDialog
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
@@ -16,6 +17,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.CheckBox
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.RadioButton
@@ -43,6 +45,11 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
     private var tournamentPhaseGroup: RadioGroup? = null
 
     private var reshootActionGroup: RadioGroup? = null
+
+    private var lunchBreakBox: CheckBox? = null
+
+    /** set while the box is changed by the code and not by a finger */
+    private var lunchBreakSilent = false
 
     private inner class ProgressControl : Drawable() {
 
@@ -90,8 +97,9 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
          *
          * The second group of a pass used to be drawn with a double
          * preparation segment, from the time the display ran straight on from
-         * one group into the next. It now stops in between and each group runs
-         * its own preparation and shooting time, so both are drawn alike.
+         * one group into the next. Each group runs its own preparation and
+         * shooting time and the display reports them per group, so both are
+         * drawn alike.
          */
         fun setSegments(prepare: Int, action: Int, warn: Int) {
             if (action <= 0) {
@@ -357,9 +365,34 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         }
 
         tournamentPhaseGroup = rootView.findViewById(R.id.tournamentPhase)
+        lunchBreakBox = rootView.findViewById(R.id.lunchBreak)
+        lunchBreakBox!!.setOnCheckedChangeListener { box, checked ->
+            if (lunchBreakSilent) {
+                return@setOnCheckedChangeListener
+            }
+            if (running) {
+                // the displays do not change the view during a pass, so the
+                // box must not claim they did
+                lunchBreakSilent = true
+                box.isChecked = !checked
+                lunchBreakSilent = false
+                return@setOnCheckedChangeListener
+            }
+            val sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE)
+            UDPSender.controlDisplay(
+                currentView,
+                viewPayload(sharedPreferences),
+                System.currentTimeMillis()
+            )
+        }
+
         tournamentPhaseGroup!!.setOnCheckedChangeListener { radioGroup, id ->
             val startTime = System.currentTimeMillis()
             val sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE)
+            // choosing a phase puts its view on the displays - the break is over
+            lunchBreakSilent = true
+            lunchBreakBox!!.isChecked = false
+            lunchBreakSilent = false
             reshootAction = false
             reshootActionGroup!!.visibility = View.INVISIBLE
             val subViewName = getSubViewName()
@@ -407,6 +440,9 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         toggleButton!!.setOnClickListener { v ->
             vibrate(150, 200)
             if (!running) {
+                // back to the timer first: unchecking sends the view change,
+                // and the commands reach the displays in the order sent
+                lunchBreakBox!!.isChecked = false
                 if (reshootAction) {
                     val builder1 = AlertDialog.Builder(v.context)
                     builder1.setMessage(getString(R.string.confirmReShootAction))
@@ -463,8 +499,12 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         manager.defaultVibrator.vibrate(VibrationEffect.createOneShot(durationMs, amplitude))
     }
 
+    /** the lunch break as long as its box is checked, else the chosen phase */
     override val currentView: String
-        get() = getSubViewName()
+        get() = if (lunchBreakBox?.isChecked == true) LunchBreak.VIEW_NAME else getSubViewName()
+
+    override fun viewPayload(sharedPreferences: SharedPreferences): JSONObject? =
+        if (lunchBreakBox?.isChecked == true) LunchBreak.payload(sharedPreferences) else null
 
     private fun getSubViewName(): String {
         var viewName = ""

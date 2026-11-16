@@ -12,6 +12,14 @@ object SessionState {
     @Volatile
     var viewName: String = "home"
 
+    /** end of the lunch break as shown by the lunch view, "HH:MM" */
+    @Volatile
+    var lunchTime: String = ""
+
+    /** the same instant in seconds since 1970, 0 = unknown */
+    @Volatile
+    var lunchEnd: Long = 0L
+
     @Volatile
     var running: Boolean = false
 
@@ -72,6 +80,12 @@ object SessionState {
                 // so the controller must not record one either
                 if (!running) {
                     viewName = json.optString("v", viewName)
+                    val values = json.optJSONObject("val")
+                    val time = values?.optString("t").orEmpty()
+                    if (time.isNotEmpty()) {
+                        lunchTime = time
+                        lunchEnd = values?.optLong("e", 0L) ?: 0L
+                    }
                     hold = false
                     prepare = true
                     remainingSeconds = 0
@@ -145,5 +159,11 @@ object SessionState {
         put("cg", currentGroup)
         put("cp", currentPass)
         put("gs", groupSet)
+        // local time minus UTC - the displays know no time zone of their own
+        put("tz", java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000)
+        if (lunchTime.isNotEmpty()) {
+            put("lt", lunchTime)
+            put("le", lunchEnd)
+        }
     }
 }

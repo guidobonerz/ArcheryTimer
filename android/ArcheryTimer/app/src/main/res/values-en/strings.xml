@@ -36,6 +36,8 @@
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournament</string>
     <string name="setupViewText">Setup</string>
+    <string name="lunchBreakText">Lunch break</string>
+    <string name="lunchEndText">End of lunch break</string>
     <string name="stateViewText">State</string>
 
     <string name="title1Text">Archery</string>

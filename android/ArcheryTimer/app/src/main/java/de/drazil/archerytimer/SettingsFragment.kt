@@ -1,7 +1,9 @@
 package de.drazil.archerytimer
 
 import android.app.Dialog
+import android.app.TimePickerDialog
 import android.content.Context
+import android.content.DialogInterface
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.text.Editable
@@ -17,6 +19,7 @@ import android.widget.ImageButton
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.slider.Slider
 import org.json.JSONObject
@@ -153,6 +156,31 @@ class SettingsFragment : Fragment(), IRemoteView {
         flashingPrepareLightView.setOnCheckedChangeListener { _, b ->
             sharedPreferences.edit { putBoolean(getString(R.string.flashingPrepareLightStore), b) }
             calcActionTime(view)
+        }
+
+        // the end of the lunch break - tapped, it opens the clock to set it
+        val lunchEndTimeView = view.findViewById<TextView>(R.id.lunchEndTime)
+        lunchEndTimeView.text = LunchBreak.storedTime(sharedPreferences)
+        view.findViewById<View>(R.id.lunchEndRow).setOnClickListener {
+            // An explicit dialog theme: with the theme of the app the buttons
+            // of the dialog take its primary colour, which is black - on the
+            // dark dialog there was no visible OK to confirm the time with.
+            val dialog = TimePickerDialog(
+                requireActivity(),
+                android.R.style.Theme_DeviceDefault_Dialog_Alert,
+                { _, hour, minute ->
+                    LunchBreak.storeTime(sharedPreferences, hour, minute)
+                    lunchEndTimeView.text = LunchBreak.storedTime(sharedPreferences)
+                },
+                LunchBreak.hour(sharedPreferences),
+                LunchBreak.minute(sharedPreferences),
+                true
+            )
+            dialog.show()
+            // the buttons only exist once the dialog is on screen
+            val orange = ContextCompat.getColor(requireContext(), R.color.orange)
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE)?.setTextColor(orange)
+            dialog.getButton(DialogInterface.BUTTON_NEGATIVE)?.setTextColor(orange)
         }
 
         calcActionTime(view)

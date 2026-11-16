@@ -44,7 +44,8 @@ enum View { Dummy = 100,
             StatusView,
             PauseView,
             InfoView,
-            FinalView };
+            FinalView,
+            LunchView };
 
 enum Phase { IdlePhase = 200,
              RunPhase,
@@ -57,11 +58,46 @@ Phase phase = IdlePhase;
 bool stop = false;
 bool hold = false;
 bool prepare = true;
+// when the lunch break is over, "HH:MM" as set in the app
+char lunchTime[6] = "13:00";
+// the same instant in seconds since 1970 (UTC), 0 = unknown. The display has
+// no time zone, so the app works out the instant and sends it along.
+uint32_t lunchEnd = 0;
+// true as long as the end of the break is still ahead - only then it is
+// announced with a signal
+bool lunchArmed = false;
+bool lunchOver = false;
+bool lunchBlinkOn = true;
+unsigned long lunchNextCheck = 0;
+// The blinking after the end of the break runs on a beat given by the master
+// display. The wall clocks only agree to within two seconds - the app does not
+// correct less - so they cannot keep a half second blink in step.
+unsigned long lunchBlinkAnchor = 0;  // millis() of a moment the time went on
+unsigned long lunchBeatNext = 0;     // when the master sends its next beat
+// how long a display waits for the beat of the master before it declares the
+// break over on its own clock
+const uint32_t LUNCH_MASTER_GRACE = 3;
+// set when the tournament leader ended the shooting time with the stop key
+bool stopRequested = false;
+// Time the triple signal of the last pass gets before the final view comes up
+// with its own sound - the player can only play one at a time, so starting
+// the next one cuts the signal off.
+const unsigned long FINAL_VIEW_DELAY = 5000;
+bool finalViewPending = false;
+unsigned long finalViewAt = 0;
+// breathing space between such a stop and the start of the next group
+const unsigned long GROUP_CHANGE_DELAY = 500;
 bool initialize = true;
 bool wifiEnabled = true;
 bool bluetoothActive = false;
 bool wifiActive = false;
 bool timeSynced = false;
+// Local time minus UTC in seconds, as told by the app. The clock of the board
+// runs in UTC and the board knows no time zone of its own.
+int32_t tzOffset = 0;
+// the second of the day the status view shows, -1 = none drawn yet
+int32_t statusSecondShown = -1;
+unsigned long statusNextCheck = 0;
 bool soundActive = false;
 bool isMaster = true;
 bool reshootActive = false;
@@ -178,6 +214,8 @@ const char* CHANGE_VIEW = "change_view";
 const char* TOURNAMENT_MODE = "tournament_mode";
 
 const char* HOME = "home";
+const char* LUNCH = "lunch";
+const char* BLINK = "blink";
 const char* INFO = "info";
 const char* SETUP = "setup";
 const char* SHOOT_IN = "shoot_in";
@@ -205,7 +243,6 @@ const char* SET_TIME = "set_time";
 const char* ACK = "ack";
 unsigned int localPort = 5005;
 
-float r1, r2, r3, r4, r5;
 
 char receiveBuffer[512];
 
@@ -361,6 +398,11 @@ void loop(void) {
   }
 
 
+  // a start or a change of view in the meantime: the final view is off
+  if (finalViewPending && (view != TournamentView || phase != IdlePhase)) {
+    finalViewPending = false;
+  }
+
   if (view == MainView) {
   } else if (view == ShootInView) {
     if (phase == RunPhase) {
@@ -482,10 +524,10 @@ void loop(void) {
       initialize = true;
       drawCountdown(46, 3, 0);
       drawTrafficLight(Red, true);
-      // The change of group is not a change of pass: the next group is put up
-      // and the display waits for the start of the tournament leader. It used
-      // to run straight on into the preparation of the next group, which left
-      // no room to call the archers up and change the target line.
+      // The change of group is not the end of the pass: no triple signal, the
+      // display goes straight on into the preparation time of the next group,
+      // which opens with the double signal. Only when every group has shot
+      // does the pass end with the triple signal.
       bool groupChanged = false;
       if (groups > 1) {
         if (!reverseMode) {
@@ -508,31 +550,37 @@ void loop(void) {
         if (groupChanged) {
           groupSet++;
           initTimer = prepareTime;
-          // the countdown of the group that is next, not the 0 the group
-          // before it ended on - the line has to read this as "ready", not
-          // as "over"
           timer = initTimer;
-          synced = false;
-          runAt = 0;
-          phase = IdlePhase;
+          // Keep running: the initialize step of the run phase plays the
+          // double signal, shows the preparation time and reports the new
+          // group to the controller.
+          hold = false;
+          phase = RunPhase;
+          // Stay on the one second grid all displays share, but drop the
+          // ticks that are already over - after a stop out of a pause, and
+          // for the flashing light, which stood still during the shooting
+          // time. Otherwise they would all be caught up in a burst.
+          if (stopRequested) {
+            // stopped by hand: wait half a second before the next group
+            // starts. The run phase waits for runAt and then anchors the
+            // one second grid anew, the same as after a start.
+            synced = false;
+            runAt = millis() + GROUP_CHANGE_DELAY;
+          } else if (synced) {
+            while ((long)(millis() - targetTime) >= 0) {
+              targetTime += 1000;
+            }
+            while ((long)(millis() - flashingTargetTime) >= 0) {
+              flashingTargetTime += flashingInterval;
+            }
+          }
           drawCountdown(46, 3, timer);
         }
         drawGroup(currentGroup);
       } else {
         stop = true;
       }
-      if (groupChanged) {
-        // the shooting time of this group is over - the same signal the end of
-        // a pass gets, otherwise the line would be left without one
-        myDFPlayer.play(3);
-        // the controller has to know that nothing is running any more, so its
-        // start button comes back and the new group is shown. The times are
-        // those of the group that is about to shoot, not zeroes - the progress
-        // bar has to show a pass that is still ahead, the same as the display
-        // showing its preparation time.
-        sendStop();
-        sendStatus(currentGroup, currentPasses, groups, timer, reshootActive ? reshootTime : shootingTime);
-      }
+      stopRequested = false;
       if (stop) {
         sendStop();
         stop = false;
@@ -547,24 +595,29 @@ void loop(void) {
         if (currentPasses > passes) {
           currentGroup = 1;
           currentPasses = 1;
-          delay(2000);
-          view = FinalView;
-          myDFPlayer.play(5);
+          // not waited out here: the board has to go on answering the
+          // controller and the other displays in the meantime
+          finalViewPending = true;
+          finalViewAt = millis() + FINAL_VIEW_DELAY;
         }
       }
 
       matrix.show();
-    } else {
+    } else if (finalViewPending && (long)(millis() - finalViewAt) >= 0) {
+      finalViewPending = false;
+      view = FinalView;
+      myDFPlayer.play(5);
     }
   } else if (view == SetupView) {
     // nothing to do
   } else if (view == StatusView) {
-    showStatusView();
-    view = Dummy;
+    statusLoop();
   } else if (view == PauseView) {
     //showPauseView();
   } else if (view == FinalView) {
     showFinalView();
+  } else if (view == LunchView) {
+    lunchLoop();
   }
 }
 
@@ -702,19 +755,262 @@ void showShootInView() {
 void showSetupView() {
   matrix.fillScreen(0);
   matrix.setFont(&muMatrix8ptRegular);
-  matrix.setCursor(0, 16);
   matrix.setTextColor(0x5555FF);
-  matrix.print("Setup");
+  printCentered("Setup", 36);
   matrix.show();
 }
 
+// ---------------------------------------------------------------------------
+// the fireworks of the final view
+// ---------------------------------------------------------------------------
+
+#define FIREWORK_COUNT 3
+#define FIREWORK_SPARKS 14
+#define FIREWORK_FRAME_MS 40
+// the row the rockets start from - the bottom row of what all views draw on
+#define FIREWORK_GROUND 63
+// every rocket climbs at least this many pixels before it bursts
+#define FIREWORK_MIN_CLIMB 10
+// the highest row a rocket bursts on, just below the line of text
+#define FIREWORK_TOP 22
+
+struct Firework {
+  uint8_t state;  // 0 = waiting, 1 = rocket rising, 2 = burst
+  uint8_t r, g, b;
+  float x, y, vy;
+  float burstY;
+  uint8_t life;  // frames the burst still lasts
+  unsigned long launchAt;
+  float sx[FIREWORK_SPARKS], sy[FIREWORK_SPARKS];
+  float svx[FIREWORK_SPARKS], svy[FIREWORK_SPARKS];
+};
+
+Firework fireworks[FIREWORK_COUNT];
+unsigned long fireworkNextFrame = 0;
+
+void launchFirework(uint8_t n) {
+  Firework& f = fireworks[n];
+  static const uint8_t palette[][3] = {
+    { 255, 0, 0 }, { 0, 255, 0 }, { 0, 0, 255 }, { 255, 255, 0 }, { 255, 0, 255 }, { 0, 255, 255 }, { 255, 255, 255 }
+  };
+  uint8_t c = random(7);
+  f.r = palette[c][0];
+  f.g = palette[c][1];
+  f.b = palette[c][2];
+  f.x = random(8, matrix.width() - 8);
+  f.y = FIREWORK_GROUND;
+  f.vy = -1.6;
+  // burst anywhere between the line of text and the minimum climb
+  f.burstY = random(FIREWORK_TOP, FIREWORK_GROUND - FIREWORK_MIN_CLIMB + 1);
+  f.state = 1;
+}
+
+void burstFirework(uint8_t n) {
+  Firework& f = fireworks[n];
+  for (uint8_t i = 0; i < FIREWORK_SPARKS; i++) {
+    float angle = TWO_PI * i / FIREWORK_SPARKS;
+    float speed = 0.5 + random(0, 80) / 100.0;
+    f.sx[i] = f.x;
+    f.sy[i] = f.y;
+    f.svx[i] = cos(angle) * speed;
+    f.svy[i] = sin(angle) * speed;
+  }
+  f.life = 30;
+  f.state = 2;
+}
+
+void stepFireworks() {
+  for (uint8_t n = 0; n < FIREWORK_COUNT; n++) {
+    Firework& f = fireworks[n];
+    if (f.state == 0) {
+      if ((long)(millis() - f.launchAt) >= 0) {
+        launchFirework(n);
+      }
+    } else if (f.state == 1) {
+      f.y += f.vy;
+      matrix.drawPixel((int16_t)f.x, (int16_t)f.y, matrix.color565(255, 255, 255));
+      matrix.drawPixel((int16_t)f.x, (int16_t)f.y + 2, matrix.color565(255, 170, 0));
+      if (f.y <= f.burstY) {
+        burstFirework(n);
+      }
+    } else {
+      // the panel only knows four levels per colour, so fade in three steps
+      uint8_t level = f.life > 18 ? 255 : (f.life > 8 ? 170 : 85);
+      uint16_t color = matrix.color565(f.r * level / 255, f.g * level / 255, f.b * level / 255);
+      for (uint8_t i = 0; i < FIREWORK_SPARKS; i++) {
+        f.sx[i] += f.svx[i];
+        f.sy[i] += f.svy[i];
+        f.svx[i] *= 0.96;
+        f.svy[i] = f.svy[i] * 0.96 + 0.04;  // slowed by the air, pulled down
+        matrix.drawPixel((int16_t)f.sx[i], (int16_t)f.sy[i], color);
+      }
+      f.life--;
+      if (f.life == 0) {
+        f.state = 0;
+        f.launchAt = millis() + random(200, 1500);
+      }
+    }
+  }
+}
+
+/**
+ * Draws one frame. Called on every pass of the loop while the final view is
+ * up, so it must not block: it only draws when the next frame is due.
+ */
 void showFinalView() {
+  if ((long)(millis() - fireworkNextFrame) < 0) {
+    return;
+  }
+  fireworkNextFrame = millis() + FIREWORK_FRAME_MS;
+  matrix.fillScreen(0);
+  stepFireworks();
+  // the text last, so no spark covers it
+  matrix.setFont(&muMatrix8ptRegular);
+  matrix.setTextColor(0x5555FF);
+  printCentered("Das war es ...", 16);
+  matrix.show();
+}
+
+/**
+ * Takes over the end of the lunch break. Anything that is not "HH:MM" is
+ * ignored and the time shown so far stays - the big font only has digits and
+ * the colon.
+ */
+void setLunchTime(const char* value, uint32_t end) {
+  if (value == NULL || strlen(value) != 5 || value[2] != ':') {
+    return;
+  }
+  for (uint8_t i = 0; i < 5; i++) {
+    if (i != 2 && (value[i] < '0' || value[i] > '9')) {
+      return;
+    }
+  }
+  strcpy(lunchTime, value);
+  lunchEnd = end;
+  // A time that is already over when it arrives - the view is opened again
+  // after the break, a display joins late - blinks but stays silent. The
+  // signal is only for the end that is reached while the view is up.
+  lunchOver = lunchEnd != 0 && timeSynced && (uint32_t)(clockNowMs() / 1000) >= lunchEnd;
+  lunchArmed = lunchEnd != 0 && !lunchOver;
+  lunchBlinkOn = true;
+  lunchBlinkAnchor = millis();
+  lunchBeatNext = millis();
+}
+
+/** the end of the break is reached: signal, and the time starts to blink */
+void startLunchOver(unsigned long anchor) {
+  lunchOver = true;
+  if (lunchArmed) {
+    myDFPlayer.play(3);
+  }
+  lunchArmed = false;
+  lunchBlinkAnchor = anchor;
+  lunchBlinkOn = false;  // forces the first red frame
+  lunchBeatNext = millis();
+}
+
+/** the beat of the master display - the others fall in step with it */
+void handleLunchBeat() {
+  uint32_t end = doc["e"] | (uint32_t)0;
+  if (isMaster || view != LunchView || lunchEnd == 0 || end != lunchEnd) {
+    return;
+  }
+  // "o" is how far the master was into its blink second when it sent this
+  unsigned long anchor = millis() - (doc["o"] | (uint16_t)0);
+  if (!lunchOver) {
+    startLunchOver(anchor);
+  } else {
+    lunchBlinkAnchor = anchor;
+  }
+}
+
+void printCentered(const char* text, int16_t y) {
+  int16_t x1, y1;
+  uint16_t w, h;
+  matrix.getTextBounds(text, 0, y, &x1, &y1, &w, &h);
+  matrix.setCursor((matrix.width() - (int16_t)w) / 2, y);
+  matrix.print(text);
+}
+
+/** lunch break and the time shooting goes on */
+void showLunchView() {
   matrix.fillScreen(0);
   matrix.setFont(&muMatrix8ptRegular);
-  matrix.setCursor(0, 16);
   matrix.setTextColor(0x5555FF);
-  matrix.print("Das war es ...");
+  printCentered("Mittagspause", 14);
+  matrix.setTextColor(White);
+  printCentered("bis", 32);
+  drawLunchTime(lunchOver ? Red : White, true);
   matrix.show();
+}
+
+/**
+ * Called on every pass of the loop while the lunch view is up. Sounds the
+ * signal when the end of the break is reached and lets the time blink in red
+ * from then on.
+ */
+void lunchLoop() {
+  if ((long)(millis() - lunchNextCheck) < 0) {
+    return;
+  }
+  lunchNextCheck = millis() + 20;
+  if (lunchEnd == 0) {
+    return;
+  }
+  if (!lunchOver && timeSynced) {
+    // The master goes by its clock, the others wait for its beat so signal
+    // and blinking start together - and only fall back on their own clock
+    // when no beat arrives.
+    uint32_t now = (uint32_t)(clockNowMs() / 1000);
+    if (now >= lunchEnd && (isMaster || now >= lunchEnd + LUNCH_MASTER_GRACE)) {
+      startLunchOver(millis());
+    }
+  }
+  if (!lunchOver) {
+    return;
+  }
+  unsigned long elapsed = millis() - lunchBlinkAnchor;
+  bool on = (elapsed / 500) % 2 == 0;
+  if (on != lunchBlinkOn) {
+    lunchBlinkOn = on;
+    drawLunchTime(Red, on);
+    matrix.show();
+  }
+  if (isMaster && (long)(millis() - lunchBeatNext) >= 0) {
+    lunchBeatNext = millis() + 1000;
+    beginStateMessage(BLINK);
+    out["e"] = lunchEnd;
+    out["o"] = (uint16_t)((millis() - lunchBlinkAnchor) % 1000);
+    sendPacket(out);
+  }
+}
+
+void drawLunchTime(uint16_t color, bool visible) {
+  if (visible) {
+    drawClockTime(lunchTime, 42, color);
+  } else {
+    matrix.fillRect((matrix.width() - 54) / 2, 42, 54, 17, 0);
+  }
+}
+
+/** "HH:MM" in the big digits, centred, with its top edge on row y */
+void drawClockTime(const char* hhmm, int16_t y, uint16_t color) {
+  // The digit font announces a colon but only holds the ten digits, so
+  // printing "HH:MM" as a string drew whatever follows the font in memory.
+  // The digits are set one by one and the colon is drawn by hand:
+  // 24 px hours + 6 px colon + 24 px minutes = 54 px, centred on 128.
+  const int16_t x = (matrix.width() - 54) / 2;
+  matrix.fillRect(x, y, 54, 17, 0);
+  matrix.setFont(&Digi11x17_2);
+  matrix.setTextColor(color);
+  matrix.setCursor(x, y);
+  matrix.print(hhmm[0]);
+  matrix.print(hhmm[1]);
+  matrix.fillRect(x + 25, y + 4, 3, 3, color);
+  matrix.fillRect(x + 25, y + 11, 3, 3, color);
+  matrix.setCursor(x + 30, y);
+  matrix.print(hhmm[3]);
+  matrix.print(hhmm[4]);
 }
 
 void showPauseView() {
@@ -745,7 +1041,55 @@ void showStatusView() {
   matrix.setCursor(104, 14);
   matrix.print("D");
   showDisabledIcon(!soundActive, 104);
+  statusSecondShown = -1;
+  drawStatusClock();
   matrix.show();
+}
+
+/**
+ * The time of day with seconds, centred below the icons. Returns true when
+ * it drew something new.
+ *
+ * The digit font has no colon, so the digits are set in pairs and the colons
+ * are drawn by hand: 3 x 24 px digits + 2 x 6 px colon = 84 px.
+ */
+bool drawStatusClock() {
+  if (!timeSynced) {
+    return false;  // nothing to show, the crossed out clock icon says why
+  }
+  int32_t second = (int32_t)((clockNowMs() / 1000 + tzOffset) % 86400);
+  if (second == statusSecondShown) {
+    return false;
+  }
+  statusSecondShown = second;
+  const uint8_t parts[3] = { (uint8_t)(second / 3600), (uint8_t)((second / 60) % 60), (uint8_t)(second % 60) };
+  const int16_t x = (matrix.width() - 84) / 2;
+  const int16_t y = 36;
+  matrix.fillRect(x, y, 84, 17, 0);
+  matrix.setFont(&Digi11x17_2);
+  matrix.setTextColor(White);
+  for (uint8_t i = 0; i < 3; i++) {
+    const int16_t px = x + i * 30;
+    matrix.setCursor(px, y);
+    matrix.print((char)('0' + parts[i] / 10));
+    matrix.print((char)('0' + parts[i] % 10));
+    if (i < 2) {
+      matrix.fillRect(px + 25, y + 4, 3, 3, White);
+      matrix.fillRect(px + 25, y + 11, 3, 3, White);
+    }
+  }
+  return true;
+}
+
+/** called on every pass of the loop while the status view is up */
+void statusLoop() {
+  if ((long)(millis() - statusNextCheck) < 0) {
+    return;
+  }
+  statusNextCheck = millis() + 20;
+  if (drawStatusClock()) {
+    matrix.show();
+  }
 }
 
 void showDisabledIcon(bool disabled, int x) {
@@ -783,6 +1127,7 @@ void showMainView() {
 
 void reset() {
   phase = IdlePhase;
+  finalViewPending = false;
   initialize = true;
   prepare = true;
   synced = false;
@@ -919,32 +1264,96 @@ void sendPacket(JsonDocument& d) {
   udp.endPacket();
 }
 
+/**
+ * The power-on animation: the flight of an arrow into the target, seen from
+ * the arrow. The target starts as a dot in the distance and grows the way
+ * things do when one flies at them - slowly first, then all at once. The
+ * arrow sways in flight, so the target swings around the middle of the
+ * screen and settles as it comes close, until the gold fills everything.
+ */
 void showIntro() {
-  r1 = 5;
-  r2 = 4;
-  r3 = 3;
-  r4 = 2;
-  r5 = 1;
-  uint16_t c = 140;
-  while (r5 < 138) {
-    matrix.fillCircle(64, 32, (uint16_t)r1, White);
-    matrix.fillCircle(64, 32, (uint16_t)r2, Black);
-    matrix.fillCircle(64, 32, (uint16_t)r3, Blue);
-    matrix.fillCircle(64, 32, (uint16_t)r4, Red);
-    matrix.fillCircle(64, 32, (uint16_t)r5, matrix.color565(c, c, 0));
-    matrix.show();
-    if (r5 > 10) {
-      c = c - 9;
-    }
+  // the five colours of the target from the outside in, and how much of the
+  // full radius each one reaches
+  const uint16_t ringColors[5] = { White, Black, Blue, Red, matrix.color565(255, 255, 0) };
+  const float ringSizes[5] = { 1.0, 0.8, 0.6, 0.4, 0.2 };
+  const uint16_t grass = matrix.color565(0, 85, 0);
+  // The sky: light blue at the horizon, a little darker at the top. The panel
+  // only knows four levels per colour, so there is no shade in between - the
+  // two blues are mixed pixel by pixel in a fixed pattern, more of the light
+  // one the further down.
+  const uint16_t sky = matrix.color565(85, 170, 255);
+  const uint16_t skyTop = matrix.color565(0, 85, 255);
+  const uint8_t dither[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+  const int16_t skyRows = 40;  // from here down the sky is all light blue
+  // where the clouds hang at the start: x, y and size
+  const int8_t clouds[3][3] = { { 20, 13, 4 }, { 100, 10, 5 }, { 52, 6, 3 } };
+  const uint16_t steel = matrix.color565(85, 85, 85);
+  const int16_t midX = matrix.width() / 2;
+  const int16_t midY = 32;
+  const uint8_t frames = 60;
 
-    delay(40);
-    r1 = r1 * 1.2;
-    r2 = r2 * 1.2;
-    r3 = r3 * 1.2;
-    r4 = r4 * 1.2;
-    r5 = r5 * 1.2;
+  for (uint8_t frame = 0; frame < frames; frame++) {
+    // 1 = just released, 0 = in the target
+    float distance = 1.0 - (float)frame / frames;
+    // the radius of the whole target: 6 px at the start; in the last frame the
+    // gold alone reaches into every corner
+    float radius = 6.5 / distance;
+    // the swaying of the arrow, dying down on the way
+    float cx = midX + sin(frame * 0.22) * 6.0 * distance;
+    float cy = midY + cos(frame * 0.17) * 3.0 * distance - 4.0 * distance;
+
+    matrix.fillScreen(sky);
+    for (int16_t y = 0; y < skyRows; y++) {
+      // 0..16: how much of the light blue this row gets
+      uint8_t light = (uint8_t)(y * 17 / skyRows);
+      for (int16_t x = 0; x < matrix.width(); x++) {
+        if (dither[y & 3][x & 3] >= light) {
+          matrix.drawPixel(x, y, skyTop);
+        }
+      }
+    }
+    // The clouds sway with everything else and drift apart a little as the
+    // arrow comes closer. They are far away, so they hardly grow.
+    float spread = 1.0 + (1.0 - distance) * 0.5;
+    for (uint8_t i = 0; i < 3; i++) {
+      int16_t x = (int16_t)(cx + (clouds[i][0] - midX) * spread);
+      int16_t y = (int16_t)(cy + (clouds[i][1] - midY) * spread);
+      int16_t size = clouds[i][2];
+      matrix.fillCircle(x - size, y, size - 1, White);
+      matrix.fillCircle(x, y - 1, size, White);
+      matrix.fillCircle(x + size + 1, y, size - 1, White);
+      matrix.fillRect(x - size, y, 2 * size + 2, size, White);
+    }
+    // the field the target stands on, its far edge just below the target
+    int16_t horizon = (int16_t)(cy + radius * 1.2);
+    if (horizon < matrix.height()) {
+      matrix.fillRect(0, max((int16_t)0, horizon), matrix.width(), matrix.height(), grass);
+    }
+    for (uint8_t i = 0; i < 5; i++) {
+      float r = radius * ringSizes[i];
+      if (r < 0.5) {
+        continue;
+      }
+      if (r > 100) {
+        matrix.fillScreen(ringColors[i]);  // reaches beyond every corner
+      } else {
+        matrix.fillCircle((int16_t)cx, (int16_t)cy, (int16_t)r, ringColors[i]);
+      }
+    }
+    // the point of the arrow at the lower edge, aiming at the target
+    int16_t tipX = midX + (int16_t)((cx - midX) * 0.4);
+    matrix.fillTriangle(midX - 2, 63, midX + 2, 63, tipX, 54, steel);
+    matrix.show();
+    delay(35);
   }
-  Serial.printf("%d\n", c);
+
+  // the hit
+  matrix.fillScreen(White);
+  matrix.show();
+  delay(80);
+  matrix.fillScreen(ringColors[4]);
+  matrix.show();
+  delay(350);
   matrix.fillScreen(0);
   matrix.show();
 }
@@ -1001,7 +1410,12 @@ void handleControllerCommand() {
       showSetupView();
     } else if (strcmp(viewName, STATE) == 0) {
       view = StatusView;
+      tzOffset = doc["val"]["tz"] | tzOffset;
       showStatusView();
+    } else if (strcmp(viewName, LUNCH) == 0) {
+      view = LunchView;
+      setLunchTime(doc["val"]["t"], doc["val"]["e"] | (uint32_t)0);
+      showLunchView();
     }
   } else if (strcmp(command, RUN) == 0 && (phase == IdlePhase || phase == RunPhase)) {
     if (phase == IdlePhase) {
@@ -1016,6 +1430,7 @@ void handleControllerCommand() {
       }
       initialize = true;
       prepare = true;
+      stopRequested = false;
     }
     synced = false;
     runAt = millis() + (syncDelay < SYNC_LEAD ? SYNC_LEAD - syncDelay : 0);
@@ -1028,6 +1443,7 @@ void handleControllerCommand() {
     sendPauseState();
   } else if (strcmp(command, STOP) == 0 && phase == RunPhase) {
     phase = StopPhase;
+    stopRequested = true;
     hold = doc["val"]["h"];
   } else if (strcmp(command, CONFIG) == 0) {
     configure();
@@ -1118,6 +1534,9 @@ const char* currentViewName() {
   }
   if (view == StatusView) {
     return STATE;
+  }
+  if (view == LunchView) {
+    return LUNCH;
   }
   return HOME;
 }
@@ -1228,6 +1647,8 @@ void redrawCurrentView() {
     showStatusView();
   } else if (view == FinalView) {
     showFinalView();
+  } else if (view == LunchView) {
+    showLunchView();
   } else {
     showMainView();
   }
@@ -1319,6 +1740,10 @@ void handlePeerPacket() {
   if (strcmp(id, displayId) == 0) {
     return;  // our own broadcast comes back to us
   }
+  if (strcmp(command, BLINK) == 0) {
+    handleLunchBeat();
+    return;
+  }
   if (strcmp(command, HELLO) != 0 && strcmp(command, HEARTBEAT) != 0) {
     return;
   }
@@ -1409,9 +1834,14 @@ void applyResync() {
     view = SetupView;
   } else if (strcmp(wantedView, STATE) == 0) {
     view = StatusView;
+  } else if (strcmp(wantedView, LUNCH) == 0) {
+    view = LunchView;
   } else {
     view = MainView;
   }
+  tzOffset = val["tz"] | tzOffset;
+  // taken over whatever the view, so it is there when the break is put up
+  setLunchTime(val["lt"], val["le"] | (uint32_t)0);
   viewSuspendedByOffline = false;
 
   hold = val["h"] | false;
