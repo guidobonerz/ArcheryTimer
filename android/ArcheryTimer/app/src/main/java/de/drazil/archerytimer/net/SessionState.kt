@@ -26,6 +26,14 @@ object SessionState {
     @Volatile
     var hold: Boolean = false
 
+    /**
+     * The safety stop: the displays show the warning and hold the countdown
+     * until it is released. Kept here and not in the tournament page, which
+     * is built anew every time it is opened.
+     */
+    @Volatile
+    var emergency: Boolean = false
+
     @Volatile
     var prepare: Boolean = true
 
@@ -102,7 +110,10 @@ object SessionState {
 
             "pause" -> hold = true
 
-            "stop", "reset", "emergency" -> {
+            // holds the pass, it does not end it
+            "emergency" -> emergency = json.optJSONObject("val")?.optBoolean("e", false) ?: false
+
+            "stop", "reset" -> {
                 stale = false
                 running = false
                 hold = false
@@ -136,6 +147,9 @@ object SessionState {
         if (json.has("h")) {
             hold = json.optBoolean("h", hold)
         }
+        if (json.has("em")) {
+            emergency = json.optBoolean("em", emergency)
+        }
     }
 
     fun onDisplayStopped() {
@@ -154,6 +168,7 @@ object SessionState {
         put("v", viewName)
         put("r", running && remainingSeconds > 0)
         put("h", hold)
+        put("em", emergency)
         put("pr", prepare)
         put("t", remainingSeconds)
         put("cg", currentGroup)

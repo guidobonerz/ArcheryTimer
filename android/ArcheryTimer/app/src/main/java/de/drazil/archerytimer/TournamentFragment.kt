@@ -25,11 +25,13 @@ import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import org.json.JSONObject
+import de.drazil.archerytimer.net.DisplayRegistry
+import de.drazil.archerytimer.net.SessionState
 import de.drazil.archerytimer.udp.UDPSender
 import de.drazil.archerytimer.udp.UDPServer
 import androidx.core.content.edit
 
-class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
+class TournamentFragment : Fragment(), IRemoteControl, IRemoteView, DisplayRegistry.Listener {
 
     private var running = false
     private var hold = false
@@ -38,6 +40,9 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
     private var topic: String? = null
 
     private var toggleButton: ImageButton? = null
+    private var emergencyButton: ImageButton? = null
+    private var stopButton: ImageButton? = null
+    private var resetButton: ImageButton? = null
     private var passStatusView: TextView? = null
     private var imageView: ImageView? = null
     private var progress: ProgressControl? = null
@@ -50,6 +55,12 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
 
     /** set while the box is changed by the code and not by a finger */
     private var lunchBreakSilent = false
+
+    /** the same for the arrow buttons of the re-shoot */
+    private var reshootSilent = false
+
+    /** without a display on the network there is nobody to command */
+    private var displaysOnline = false
 
     private inner class ProgressControl : Drawable() {
 
@@ -118,13 +129,19 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
             group = sharedPreferences.getInt(getString(R.string.groupStore), 1)
             prepareTime = sharedPreferences.getInt(getString(R.string.prepareTimeStore), 0)
             remainingPrepareTime = prepareTime
-            actionTime = sharedPreferences.getInt(getString(R.string.actionTimeStore), 0)
+            actionTime = if (reshootAction) {
+                // a re-shoot only runs for the arrows chosen above
+                sharedPreferences.getInt(getString(R.string.reshootArrowCountStore), 1) *
+                        sharedPreferences.getInt(getString(R.string.arrowTimeStore), 0)
+            } else {
+                sharedPreferences.getInt(getString(R.string.actionTimeStore), 0)
+            }
             remainingActionTime = actionTime
             warnTime = sharedPreferences.getInt(getString(R.string.warnTimeStore), 0)
 
-            if (warnTime > actionTime) {
+            warnOnly = warnTime >= actionTime
+            if (warnOnly) {
                 warnTime = actionTime
-                warnOnly = true
             }
             maxTime = prepareTime + actionTime
             remainingOffset = maxTime
@@ -209,7 +226,20 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        DisplayRegistry.removeListener(this)
         UDPServer.removeRemoteControl(this)
+    }
+
+    override fun onDisplaysChanged(displays: List<DisplayRegistry.Display>) {
+        val online = displays.any { it.online }
+        if (online != displaysOnline) {
+            displaysOnline = online
+            updateEmergencyButton()
+        }
+    }
+
+    override fun onDisplayAvailable(display: DisplayRegistry.Display, reason: DisplayRegistry.Reason) {
+        // the table change above is all this page needs
     }
 
     private fun sendRun(startTime: Long) {
@@ -265,10 +295,14 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         }
     }
 
-    private fun sendEmergency(startTime: Long) {
+    /** sets or releases the safety stop */
+    private fun sendEmergency(on: Boolean, startTime: Long) {
         val payload = JSONObject()
         try {
+            val valuesObject = JSONObject()
+            valuesObject.put("e", on)
             payload.put("cmd", "emergency")
+            payload.put("val", valuesObject)
             UDPSender.broadcastJSON(payload, startTime)
         } catch (ex: Exception) {
             Log.e("Error", ex.message ?: "")
@@ -291,16 +325,20 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
                 hold = false
                 running = false
                 toggleButton!!.setImageResource(R.drawable.play)
+                updateArrowButtons()
             } else if (command.equals("reset", ignoreCase = true)) {
                 running = false
                 hold = false
                 toggleButton!!.setImageResource(R.drawable.play)
                 setGroupAndPassInfo("AB", 0, 0)
+                updateArrowButtons()
+                progress!!.reset()
             } else if (command.equals("emergency", ignoreCase = true)) {
-                running = false
-                hold = false
-                toggleButton!!.setImageResource(R.drawable.play)
+                // set or released by the touch controller - the session
+                // state has taken it over already
+                updateEmergencyButton()
             } else if (command.equals("state", ignoreCase = true)) {
+                updateEmergencyButton()
                 val sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE)
                 setGroupAndPassInfo(
                     if (json.getInt("cg") == 1) "AB" else "CD",
@@ -339,6 +377,59 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         toggleButton!!.setImageResource(
             if (running && !hold) R.drawable.pause else R.drawable.play
         )
+        updateArrowButtons()
+    }
+
+    /**
+     * The number of arrows of a re-shoot is chosen before the start. During
+     * the pass the displays are counting with it, so it stays as it is.
+     */
+    private fun updateArrowButtons() {
+        // The displays keep their view and their arrows for the length of a
+        // pass, and a reset would throw the pass away - it has to be stopped
+        // first. During the safety stop nothing but the bell works.
+        val idle = !running && !SessionState.emergency
+        // and with no display on the network there is nothing to set up
+        val free = idle && displaysOnline
+        reshootActionGroup?.let { group ->
+            for (i in 0 until group.childCount) {
+                group.getChildAt(i).isEnabled = reshootAction && free
+            }
+            group.alpha = if (free) 1.0f else 0.3f
+        }
+        tournamentPhaseGroup?.let { group ->
+            group.alpha = if (free) 1.0f else 0.3f
+            for (i in 0 until group.childCount) {
+                group.getChildAt(i).isEnabled = free
+            }
+        }
+        resetButton?.isEnabled = free
+        resetButton?.alpha = if (free) 1.0f else 0.3f
+        lunchBreakBox?.isEnabled = idle
+        lunchBreakBox?.alpha = if (idle) 1.0f else 0.3f
+    }
+
+    /** the bell on red for as long as the safety stop is set */
+    private fun updateEmergencyButton() {
+        val emergency = SessionState.emergency
+        emergencyButton?.setBackgroundColor(if (emergency) Color.RED else Color.BLACK)
+        // during the safety stop only the bell is left to press, and
+        // without a display nobody would hear start or stop
+        val usable = !emergency && displaysOnline
+        for (button in listOf<View?>(toggleButton, stopButton)) {
+            button?.isEnabled = usable
+            button?.alpha = if (usable) 1.0f else 0.3f
+        }
+        // the bar shows what a display reports - without one it shows nothing true
+        imageView?.alpha = if (displaysOnline) 1.0f else 0.3f
+        updateArrowButtons()
+    }
+
+    private fun startPass() {
+        sendRun(System.currentTimeMillis())
+        running = true
+        hold = false
+        updateArrowButtons()
     }
 
     private fun setGroupAndPassInfo(groupInfo: String, currentPass: Int, maxPass: Int) {
@@ -355,13 +446,18 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         imageView!!.setImageDrawable(progress)
         reshootActionGroup = rootView.findViewById(R.id.reShootActionGroup)
         reshootActionGroup!!.setOnCheckedChangeListener { _, id ->
+            // only a finger on a button counts - the phase listener below
+            // sets the buttons and sends the configuration itself
+            if (reshootSilent || id <= 0) {
+                return@setOnCheckedChangeListener
+            }
             val startTime = System.currentTimeMillis()
             val sharedPreferences = requireActivity().getPreferences(Context.MODE_PRIVATE)
-            Log.i("button", id.toString())
             sharedPreferences.edit {
                 putInt(getString(R.string.reshootArrowCountStore), id)
             }
             UDPSender.sendConfiguration(sharedPreferences, startTime)
+            progress!!.reset()
         }
 
         tournamentPhaseGroup = rootView.findViewById(R.id.tournamentPhase)
@@ -401,17 +497,25 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
                 val radioButton = radioGroup.findViewById<RadioButton>(id)
                 reshootAction = radioButton.isChecked
                 reshootActionGroup!!.visibility = View.VISIBLE
-                val arrowCount = sharedPreferences.getInt(getString(R.string.arrowCountStore), 0)
-                for (i in 1 until arrowCount + 1) {
-                    val rb = rootView.findViewById<RadioButton>(i)
-                    rb.isEnabled = reshootAction
-                    rb.isChecked = i == 1
+                // Every re-shoot starts out with one arrow. The number is
+                // written here and not left to the buttons: a button that is
+                // already checked does not report being checked again, and the
+                // displays would be left with the count of the time before.
+                sharedPreferences.edit {
+                    putInt(getString(R.string.reshootArrowCountStore), 1)
                 }
+                reshootSilent = true
+                reshootActionGroup!!.check(1)
+                reshootSilent = false
             }
+            updateArrowButtons()
             try {
                 UDPSender.sendConfiguration(sharedPreferences, startTime)
             } catch (ex: Exception) {
                 Log.e("Error", ex.message ?: "")
+            }
+            if (!running) {
+                progress!!.reset()
             }
         }
 
@@ -438,6 +542,10 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
         passStatusView = rootView.findViewById(R.id.passStatus)
         toggleButton = rootView.findViewById(R.id.start)
         toggleButton!!.setOnClickListener { v ->
+            // only the bell lets the tournament go on
+            if (SessionState.emergency) {
+                return@setOnClickListener
+            }
             vibrate(150, 200)
             if (!running) {
                 // back to the timer first: unchecking sends the view change,
@@ -449,7 +557,7 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
                     builder1.setCancelable(true)
                     builder1.setPositiveButton(getString(R.string.yes)) { dialog, _ ->
                         dialog.cancel()
-                        sendRun(System.currentTimeMillis())
+                        startPass()
                     }
                     builder1.setNegativeButton(getString(R.string.no)) { dialog, _ ->
                         dialog.cancel()
@@ -457,10 +565,8 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
                     val alert11 = builder1.create()
                     alert11.show()
                 } else {
-                    sendRun(System.currentTimeMillis())
+                    startPass()
                 }
-                running = true
-                hold = false
             } else {
                 if (!hold) {
                     hold = true
@@ -471,23 +577,36 @@ class TournamentFragment : Fragment(), IRemoteControl, IRemoteView {
                 }
             }
         }
-        val stopButton = rootView.findViewById<ImageButton>(R.id.stop)
-        stopButton.setOnClickListener {
+        stopButton = rootView.findViewById(R.id.stop)
+        stopButton!!.setOnClickListener {
+            if (SessionState.emergency) {
+                return@setOnClickListener
+            }
             vibrate(250, 200)
             running = false
             sendStop(System.currentTimeMillis())
+            updateArrowButtons()
         }
-        val emergencyButton = rootView.findViewById<ImageButton>(R.id.emergency)
-        emergencyButton.setOnClickListener {
-            //vibrator.vibrate(VibrationEffect.createOneShot(450,255));
-            sendEmergency(System.currentTimeMillis())
+        emergencyButton = rootView.findViewById(R.id.emergency)
+        emergencyButton!!.setOnClickListener {
+            // the bell sets the safety stop, the next press releases it
+            vibrate(450, 255)
+            sendEmergency(!SessionState.emergency, System.currentTimeMillis())
+            updateEmergencyButton()
         }
-        val resetButton = rootView.findViewById<ImageButton>(R.id.reset)
-        resetButton.setOnClickListener {
+        resetButton = rootView.findViewById(R.id.reset)
+        resetButton!!.setOnClickListener {
+            if (SessionState.emergency) {
+                return@setOnClickListener
+            }
             //vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0,40,80,40,80,40,0},-1));
             sendReset(System.currentTimeMillis())
         }
         setGroupAndPassInfo("AB", 0, sharedPreferences.getInt(getString(R.string.passesCountStore), 0))
+        // once every button is there: the page may be opened during a safety stop
+        displaysOnline = DisplayRegistry.onlineCount() > 0
+        updateEmergencyButton()
+        DisplayRegistry.addListener(this)
     }
 
     /**

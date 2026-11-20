@@ -199,6 +199,8 @@ object UDPServer : NetworkMonitor.Listener {
         when (json.optString("cmd")) {
             "state" -> SessionState.onStateReceived(json)
             "stop", "reset" -> SessionState.onDisplayStopped()
+            // set or released by the other controller
+            "emergency" -> SessionState.emergency = json.optBoolean("e", false)
         }
 
         mainHandler.post {

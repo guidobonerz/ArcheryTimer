@@ -101,9 +101,22 @@ unsigned long statusNextCheck = 0;
 bool soundActive = false;
 bool isMaster = true;
 bool reshootActive = false;
+// The safety stop: the countdown is held and every display shows the warning
+// until the controller releases it again.
+bool emergency = false;
+// whether the pass was already paused when the safety stop came
+bool holdBeforeEmergency = false;
+// The mp3 the player plays for the safety stop, 0006*.mp3 on the sd card. The
+// warning tone itself is still to be chosen.
+const uint8_t SOUND_EMERGENCY = 6;
+// The warning blinks: red letters on black, then black letters on red. All
+// displays count from the moment the key was pressed, so they blink in step.
+const uint16_t EMERGENCY_BLINK_INTERVAL = 500;
+unsigned long emergencyBlinkAnchor = 0;
+bool emergencyBlinkOn = false;
+unsigned long emergencyNextCheck = 0;
 bool flashingPrepareLight = true;
 bool trafficLightEnabled = true;
-bool reverseMode = false;
 bool synced = false;
 unsigned long currentTime;
 unsigned long targetTime;
@@ -403,7 +416,10 @@ void loop(void) {
     finalViewPending = false;
   }
 
-  if (view == MainView) {
+  if (emergency) {
+    // the warning stays on the screen and blinks, nothing counts
+    emergencyLoop();
+  } else if (view == MainView) {
   } else if (view == ShootInView) {
     if (phase == RunPhase) {
       if (!synced) {
@@ -463,7 +479,7 @@ void loop(void) {
             initialize = false;
             timer = initTimer;
             if (prepare) {
-              sendStatus(currentGroup, currentPasses, groups, timer, shootingTime);
+              sendStatus(currentGroup, currentPasses, groups, timer, passShootingTime());
             } else {
               sendStatus(currentGroup, currentPasses, groups, 0, timer);
             }
@@ -477,7 +493,8 @@ void loop(void) {
               drawCountdown(46, 3, timer);
               matrix.show();
             } else if (timer == initTimer && !prepare) {
-              drawTrafficLight(Green, true);
+              // a re-shoot of a single arrow can be shorter than the warn time
+              drawTrafficLight(initTimer <= warnTime ? Yellow : Green, true);
               drawCountdown(46, 3, timer);
               matrix.show();
             }
@@ -495,7 +512,7 @@ void loop(void) {
             if (secondElapsed()) {
               timer -= 1;
               if (prepare) {
-                sendStatus(currentGroup, currentPasses, groups, timer, shootingTime);
+                sendStatus(currentGroup, currentPasses, groups, timer, passShootingTime());
               } else {
                 sendStatus(currentGroup, currentPasses, groups, 0, timer);
               }
@@ -506,7 +523,7 @@ void loop(void) {
             if (timer == 0) {
               if (prepare) {
                 myDFPlayer.play(1);
-                initTimer = reshootActive ? reshootTime : shootingTime;
+                initTimer = passShootingTime();
                 timer = initTimer;
                 drawCountdown(46, 3, timer);
                 prepare = false;
@@ -529,18 +546,21 @@ void loop(void) {
       // which opens with the double signal. Only when every group has shot
       // does the pass end with the triple signal.
       bool groupChanged = false;
-      if (groups > 1) {
-        if (!reverseMode) {
-          if (currentGroup == groups) {
-            reverseMode = true;
+      if (reshootActive) {
+        // A re-shoot is a single run for the archers who have arrows to make
+        // up: the groups do not take turns and it ends with the triple signal.
+        stop = true;
+      } else if (groups > 1) {
+        // the groups take turns in who shoots first, see firstGroupOfPass()
+        if (currentPasses % 2 == 1) {
+          if (currentGroup >= groups) {
             stop = true;
           } else {
             currentGroup += 1;
             groupChanged = true;
           }
         } else {
-          if (currentGroup == 1) {
-            reverseMode = false;
+          if (currentGroup <= 1) {
             stop = true;
           } else {
             currentGroup -= 1;
@@ -585,8 +605,12 @@ void loop(void) {
         sendStop();
         stop = false;
         phase = IdlePhase;
-        currentPasses += 1;
-        groupSet = 0;
+        // the arrows of a re-shoot belong to the pass that was just shot, so
+        // it does not count as a pass of its own
+        if (!reshootActive) {
+          currentPasses += 1;
+          groupSet = 0;
+        }
         if (currentPasses <= passes) {
           drawPasses(75, 2, currentPasses);
         }
@@ -750,6 +774,39 @@ void showShootInView() {
   drawCountdown(38, 2, initTimer);
   drawProgressBar(60);
   matrix.show();
+}
+
+/** one frame of the warning: the red screen, or the red letters on black */
+void drawEmergencyFrame(bool lit) {
+  matrix.fillScreen(lit ? Red : Black);
+  matrix.setFont(&muMatrix8ptRegular);
+  matrix.setTextColor(lit ? Black : Red);
+  printCentered("Sicherheit", 24);
+  printCentered("Emergency", 48);
+  matrix.show();
+}
+
+/**
+ * Puts the warning up. The anchor is the millis() of the moment the blinking
+ * is counted from - the key press for a command, so every display is in step.
+ */
+void showEmergencyView(unsigned long anchor) {
+  emergencyBlinkAnchor = anchor;
+  emergencyBlinkOn = true;
+  drawEmergencyFrame(true);
+}
+
+/** called on every pass of the loop while the safety stop is set */
+void emergencyLoop() {
+  if ((long)(millis() - emergencyNextCheck) < 0) {
+    return;
+  }
+  emergencyNextCheck = millis() + 20;
+  bool lit = ((millis() - emergencyBlinkAnchor) / EMERGENCY_BLINK_INTERVAL) % 2 == 0;
+  if (lit != emergencyBlinkOn) {
+    emergencyBlinkOn = lit;
+    drawEmergencyFrame(lit);
+  }
 }
 
 void showSetupView() {
@@ -1139,6 +1196,26 @@ void reset() {
   timer = initTimer;
 }
 
+/**
+ * The group that opens a pass. The groups take turns: AB CD in the first pass,
+ * CD AB in the second and so on.
+ *
+ * The order follows from the number of the pass alone. It used to be kept in a
+ * flag of its own that a reset, the end of the tournament and a resync left as
+ * it was - a reset after the first pass then gave AB, AB CD, CD AB.
+ */
+uint8_t firstGroupOfPass() {
+  if (groups <= 1) {
+    return 1;
+  }
+  return currentPasses % 2 == 1 ? 1 : groups;
+}
+
+/** the shooting time of the pass at hand: a full pass or the arrows of a re-shoot */
+uint16_t passShootingTime() {
+  return reshootActive ? reshootTime : shootingTime;
+}
+
 void configure() {
   prefs.begin("archery_timer", RW_MODE);
   prefs.putUShort("pt", doc["val"]["pt"]);
@@ -1154,7 +1231,15 @@ void configure() {
   prepareTime = prefs.getUShort("pt");
   arrowTime = prefs.getUShort("at");
   arrowCount = prefs.getUShort("ac");
+  // at least one arrow and never more than a pass has - a re-shoot of no
+  // arrows would be over the moment the preparation time ends
   reshootArrowCount = prefs.getUShort("rac");
+  if (reshootArrowCount > arrowCount) {
+    reshootArrowCount = arrowCount;
+  }
+  if (reshootArrowCount == 0) {
+    reshootArrowCount = 1;
+  }
   shootInTime = prefs.getUShort("sit");
   shootingTime = arrowCount * arrowTime;
   reshootTime = reshootArrowCount * arrowTime;
@@ -1200,6 +1285,17 @@ void sendPauseState() {
   sendPacket(out);
 }
 
+// tells the controllers - there may be an app and a touch controller - that
+// the safety stop was set or released
+void sendEmergencyState() {
+  if (!isMaster) {
+    return;
+  }
+  beginStateMessage(EMERGENCY);
+  out["e"] = emergency;
+  sendPacket(out);
+}
+
 void sendResetState() {
   if (!isMaster) {
     return;
@@ -1208,7 +1304,7 @@ void sendResetState() {
   sendPacket(out);
 }
 
-void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, uint8_t prepareCurrent, uint8_t actionCurrent) {
+void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, uint16_t prepareCurrent, uint16_t actionCurrent) {
   if (!isMaster) {
     return;
   }
@@ -1222,11 +1318,12 @@ void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, u
   // the segment lengths of the controller progress bar - the display is the
   // only place that knows whether a re-shoot or a full pass is running
   out["spt"] = prepareTime;
-  out["sat"] = reshootActive ? reshootTime : shootingTime;
+  out["sat"] = passShootingTime();
   out["swt"] = warnTime;
   out["ph"] = (uint8_t)(phase == RunPhase ? 1 : 0);
   out["pr"] = prepare;
   out["h"] = hold;
+  out["em"] = emergency;
   out["v"] = currentViewName();
   sendPacket(out);
   /*
@@ -1370,6 +1467,51 @@ bool isAddressedToMe() {
   return dst == NULL || strcmp(dst, displayId) == 0;
 }
 
+/**
+ * The safety stop. Setting it holds the countdown like a pause and puts the
+ * warning on the screen; releasing it brings back whatever was shown and lets
+ * a pass that was running go on.
+ */
+void setEmergency(bool on) {
+  if (on != emergency) {
+    emergency = on;
+    if (on) {
+      holdBeforeEmergency = hold;
+      hold = true;
+      // "sd" is how long the command has been under way since the key press
+      showEmergencyView(millis() - syncDelay);
+      myDFPlayer.play(SOUND_EMERGENCY);
+      Serial.println("EMERGENCY");
+    } else {
+      hold = holdBeforeEmergency;
+      redrawCurrentView();
+      if (phase == RunPhase) {
+        if (view == TournamentView) {
+          if (!prepare) {
+            drawTrafficLight(timer <= warnTime ? Yellow : Green, true);
+          }
+          drawCountdown(46, 3, initialize ? initTimer : timer);
+          drawPasses(75, 2, currentPasses);
+          matrix.show();
+        } else if (view == ShootInView && !initialize) {
+          drawCountdown(38, 2, timer);
+          drawProgressBar(timer2);
+          matrix.show();
+        }
+        if (!hold) {
+          // goes on like after a pause: all displays wait for the same
+          // instant and anchor the one second grid anew
+          synced = false;
+          runAt = millis() + (syncDelay < SYNC_LEAD ? SYNC_LEAD - syncDelay : 0);
+          sendRunState();
+        }
+      }
+      Serial.println("EMERGENCY released");
+    }
+  }
+  sendEmergencyState();
+}
+
 void handleControllerCommand() {
   const char* command = doc["cmd"];
   if (command == NULL) {
@@ -1386,6 +1528,17 @@ void handleControllerCommand() {
       return;
     }
     lastCommandSeq = seq;
+  }
+  if (strcmp(command, EMERGENCY) == 0) {
+    // without a value the command toggles, as a controller of old sent it
+    setEmergency(doc["val"]["e"] | !emergency);
+    return;
+  }
+  // Only releasing the safety stop lets the tournament go on - nothing else
+  // may start, stop or change what the displays show in the meantime.
+  if (emergency && (strcmp(command, CHANGE_VIEW) == 0 || strcmp(command, RUN) == 0 || strcmp(command, PAUSE) == 0
+                    || strcmp(command, STOP) == 0 || strcmp(command, RESET) == 0)) {
+    return;
   }
   if (strcmp(command, CHANGE_VIEW) == 0 && phase == IdlePhase) {
     const char* viewName = doc["v"];
@@ -1427,6 +1580,11 @@ void handleControllerCommand() {
       } else if (view == TournamentView) {
         timer = 0;
         initTimer = prepareTime;
+        // a re-shoot stays with the group that is on the screen
+        if (!reshootActive) {
+          currentGroup = firstGroupOfPass();
+          drawGroup(currentGroup);
+        }
       }
       initialize = true;
       prepare = true;
@@ -1458,7 +1616,6 @@ void handleControllerCommand() {
     }
     sendResetState();
     sendStatus(1, 1, groups, 0, 0);
-  } else if (strcmp(command, EMERGENCY) == 0) {
   } else if (strcmp(command, VOLUME) == 0) {
     myDFPlayer.volume(doc["val"]["val"]);
   } else if (strcmp(command, SIGNAL) == 0 && phase == IdlePhase) {
@@ -1705,13 +1862,14 @@ void fillPresence(JsonDocument& d, const char* command) {
   d["ph"] = (uint8_t)(phase == RunPhase ? 1 : 0);
   d["pr"] = prepare;
   d["h"] = hold;
+  d["em"] = emergency;
   d["cg"] = currentGroup;
   d["cp"] = currentPasses;
   d["gs"] = groupSet;
   d["cpt"] = (uint16_t)(phase == RunPhase && prepare ? timer : 0);
   d["cat"] = (uint16_t)(phase == RunPhase && !prepare ? timer : 0);
   d["spt"] = prepareTime;
-  d["sat"] = reshootActive ? reshootTime : shootingTime;
+  d["sat"] = passShootingTime();
   d["swt"] = warnTime;
 }
 
@@ -1860,7 +2018,7 @@ void applyResync() {
       initTimer = shootInTime;
       timer2 = 60;
     } else {
-      initTimer = prepare ? prepareTime : (reshootActive ? reshootTime : shootingTime);
+      initTimer = prepare ? prepareTime : passShootingTime();
     }
     anchorCountdown();
   } else {
@@ -1883,6 +2041,13 @@ void applyResync() {
       drawProgressBar(timer2);
       matrix.show();
     }
+  }
+  // a display that joins during a safety stop shows the warning as well
+  emergency = val["em"] | false;
+  if (emergency) {
+    holdBeforeEmergency = false;
+    hold = true;
+    showEmergencyView(millis());
   }
   Serial.printf("resync: view=%s run=%d remaining=%d\n", wantedView, run ? 1 : 0, remaining);
 }
