@@ -19,7 +19,7 @@
     <string name="shootInTimeText">Einschiesszeit/min</string>
     <string name="modeShootInText">Einschiessen</string>
     <string name="modeTournamentText">Turnier</string>
-    <string name="modeReShootText">Re-shoot</string>
+    <string name="modeReShootText">Nachschiessen</string>
     <string name="confirmReShootAction">Wirklich nachschiessen?</string>
     <string name="prepareTimeText">Vorbereitungszeit/s</string>
     <string name="arrowTimeText">Zeit pro Pfeil/s</string>
@@ -36,6 +36,8 @@
     <string name="homeViewText">Home</string>
     <string name="tournamentViewText">Tournier</string>
     <string name="setupViewText">Einstellungen</string>
+    <string name="lunchBreakText">Mittagspause</string>
+    <string name="lunchEndText">Ende Mittagspause</string>
     <string name="stateViewText">Status</string>
 
     <string name="title1Text">Bogensport</string>

@@ -162,5 +162,18 @@
         android:textSize="24sp"
         android:textStyle="bold" />
 
+    <CheckBox
+        android:id="@+id/lunchBreak"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@null"
+        android:button="@null"
+        android:drawableStart="@drawable/check_btn"
+        android:drawablePadding="10dp"
+        android:paddingStart="10dp"
+        android:paddingTop="10dp"
+        android:text="@string/lunchBreakText"
+        android:textColor="@color/white"
+        android:textSize="20sp" />
 
 </LinearLayout>
