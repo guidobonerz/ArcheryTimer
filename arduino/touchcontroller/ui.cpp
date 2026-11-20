@@ -914,8 +914,8 @@ void refreshStatus() {
   }
   snprintf(buffer, sizeof(buffer), LV_SYMBOL_WIFI " %u/%u", online, known);
   setText(statusLabel, buffer);
-  bool good = netWifiConnected() && online > 0 && online == known;
-  bool bad = !netWifiConnected() || online == 0;
+  bool good = netRadioReady() && online > 0 && online == known;
+  bool bad = !netRadioReady() || online == 0;
   setTextColor(statusLabel, good ? ColorOnline : bad ? ColorOffline : ColorAccent);
 
   uint8_t hour;
@@ -959,7 +959,7 @@ void buildScreen() {
 }
 
 /**
- * After a start or a gap in the wifi the displays may be on a view somebody
+ * After a start the displays may be on a view somebody
  * else put them on - the app, or this controller before it was restarted.
  * The page takes it over instead of pushing its own choice back.
  */

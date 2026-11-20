@@ -1,28 +1,21 @@
 #include "net.h"
 
 #include <Preferences.h>
-#include <WiFi.h>
-#include <WiFiUdp.h>
 
 #include "config.h"
+#include "espnow_link.h"
 #include "settings.h"
 #include "wallclock.h"
-
-#if __has_include("Auth.h")
-#include "Auth.h"
-#else
-#warning "Please create Auth.h with WIFI_SSID & WIFI_PASS defined"
-#define WIFI_SSID "your-ssid"
-#define WIFI_PASS "your-password"
-#endif
 
 /*
  * The controller side of the protocol, a port of UDPSender, UDPServer,
  * DisplayRegistry and SessionState of the android app.
  *
- * Udp gives no guarantees, so every command carries a sequence number, is
- * repeated until each display has acknowledged it and is dropped by the
- * display when it has already been carried out. Every packet also carries how
+ * The messages travel by ESP-NOW (espnow_link.h), straight from board to
+ * board without an access point. A broadcast is not confirmed by the radio, so
+ * every command carries a sequence number, is repeated until each display has
+ * acknowledged it and is dropped by the display when it has already been
+ * carried out. Every packet also carries how
  * long the command has been under way ("sd"), and the displays start at
  * (key press + lead time) - a command that only gets through on the third
  * attempt still starts the countdown at the same instant everywhere.
@@ -35,7 +28,8 @@ const uint8_t COPIES = 2;
 const uint16_t RETRY_INTERVAL = 200;
 const uint8_t MAX_ATTEMPTS = 6;
 const uint8_t MAX_PENDING = 12;
-const uint16_t BODY_MAX = 400;
+// an ESP-NOW frame carries 250 bytes: the body plus the age added per attempt
+const uint16_t BODY_MAX = LINK_MAX_PAYLOAD - 20;
 
 // a display counts as gone after roughly three missed heartbeats
 const uint32_t OFFLINE_TIMEOUT = 10000;
@@ -52,8 +46,7 @@ const uint32_t STATE_REFRESH_TIMEOUT = 5000;
 // a running pass reports every second, so this is a long silence
 const uint32_t STATE_SILENCE = 4000;
 
-// How far the clock of a display may be off before it is set. A heartbeat is
-// a broadcast and can sit in the access point for a few hundred ms.
+// how far the clock of a display may be off before it is set
 const int64_t CLOCK_TOLERANCE = 2000;
 // a display is sent the time at most this often
 const uint32_t CLOCK_SYNC_INTERVAL = 10000;
@@ -64,19 +57,11 @@ const uint64_t MIN_VALID_EPOCH_MS = 1700000000000ULL;
 // start, so it never falls back behind a number a display has already seen.
 const uint64_t SEQ_RESTART_GAP = 100000;
 
-const uint32_t NET_BACKOFF_MIN = 1000;
-const uint32_t NET_BACKOFF_MAX = 30000;
-const uint32_t NET_CONNECT_TIMEOUT = 15000;
-
 const char* PREFS_NAMESPACE = "touchctl";
 
 // ---------------------------------------------------------------------------
 // state
 // ---------------------------------------------------------------------------
-
-enum NetState { NetOffline,
-                NetConnecting,
-                NetOnline };
 
 enum Reason { ReasonNone,
               ReasonNew,       // heard from for the first time
@@ -86,12 +71,13 @@ enum Reason { ReasonNone,
 
 struct Display {
   bool used;
-  // the id of the display, or its address when the id is unusable
+  // the id of the display, or its mac when the id is unusable
   char key[16];
   // the id the display reported, empty when it did not report a usable one
   char deviceId[8];
   uint8_t displayNo;
-  IPAddress ip;
+  // where a command for this display alone is sent to
+  uint8_t mac[6];
   bool online;
   // what the display itself said it is doing
   bool running;
@@ -107,7 +93,7 @@ struct Pending {
   // the message without its closing brace - the age is added per attempt
   char body[BODY_MAX];
   bool unicast;
-  IPAddress host;
+  uint8_t mac[6];
   unsigned long startTime;
   // one bit per display that has not confirmed yet
   uint16_t missing;
@@ -134,22 +120,17 @@ struct Session {
   uint16_t currentPass = 1;
   uint8_t groupSet = 0;
   // True while the controller cannot know what the displays are doing: after
-  // its own start and after the wifi was gone. A stale state must never be
+  // its own start. A stale state must never be
   // sent as a resync - it is rebuilt from the displays first.
   bool stale = true;
   unsigned long lastStateAt = 0;
 };
 
-NetState netState = NetOffline;
-unsigned long netNextAttempt = 0;
-unsigned long netAttemptStarted = 0;
-uint32_t netBackoff = NET_BACKOFF_MIN;
-bool wifiActive = false;
-bool udpStarted = false;
+bool radioReady = false;
 
-WiFiUDP udp;
 JsonDocument doc;
-char receiveBuffer[1024];
+// the packet "doc" was read from - the document points into its text
+LinkPacket packet;
 
 Display displays[MAX_DISPLAYS];
 Pending pending[MAX_PENDING];
@@ -296,7 +277,7 @@ void sessionOnDisplayStopped() {
 /**
  * Displays are told apart by the id they report. A firmware that cannot read
  * its mac would send the same id on every board, so an unusable id falls back
- * to the network address - two boards must never collapse into one entry.
+ * to the mac - two boards must never collapse into one entry.
  */
 bool isUsableId(const char* id) {
   if (id == NULL || id[0] == 0) {
@@ -346,7 +327,7 @@ int allocateDisplay(const char* key) {
   strlcpy(d.key, key, sizeof(d.key));
   d.deviceId[0] = 0;
   d.displayNo = 1;
-  d.ip = IPAddress(0, 0, 0, 0);
+  memset(d.mac, 0, sizeof(d.mac));
   d.online = true;
   d.running = false;
   d.lastSeen = now;
@@ -394,43 +375,24 @@ bool mayReportState(int index) {
 // sending
 // ---------------------------------------------------------------------------
 
-IPAddress subnetBroadcast() {
-  IPAddress ip = WiFi.localIP();
-  IPAddress mask = WiFi.subnetMask();
-  return IPAddress(ip[0] | (uint8_t)~mask[0], ip[1] | (uint8_t)~mask[1], ip[2] | (uint8_t)~mask[2], ip[3] | (uint8_t)~mask[3]);
-}
-
-void transmit(const char* body, bool unicast, IPAddress host, unsigned long startTime) {
-  if (!wifiActive || !udpStarted) {
+void transmit(const char* body, bool unicast, const uint8_t* mac, unsigned long startTime) {
+  if (!radioReady) {
     return;
   }
   // stamped per attempt: a later attempt reports a larger age, so every
   // display still arrives at the same absolute start instant
-  char packet[BODY_MAX + 32];
-  int length = snprintf(packet, sizeof(packet), "%s,\"sd\":%lu}", body, millis() - startTime);
-  if (length <= 0 || length >= (int)sizeof(packet)) {
+  char text[LINK_MAX_PAYLOAD + 1];
+  int length = snprintf(text, sizeof(text), "%s,\"sd\":%lu}", body, millis() - startTime);
+  if (length <= 0 || length >= (int)sizeof(text)) {
     return;
   }
-
-  IPAddress targets[2];
-  uint8_t targetCount = 0;
   if (unicast) {
-    targets[targetCount++] = host;
-  } else {
-    targets[targetCount++] = IPAddress(255, 255, 255, 255);
-    // some access points drop the all-ones broadcast but forward the directed
-    // one, so both are used
-    IPAddress directed = subnetBroadcast();
-    if (directed != targets[0]) {
-      targets[targetCount++] = directed;
-    }
+    // the radio repeats it by itself until the display has confirmed
+    linkSend(mac, text, length);
+    return;
   }
-  for (uint8_t t = 0; t < targetCount; t++) {
-    for (uint8_t i = 0; i < COPIES; i++) {
-      udp.beginPacket(targets[t], UDP_PORT);
-      udp.write((const uint8_t*)packet, length);
-      udp.endPacket();
-    }
+  for (uint8_t i = 0; i < COPIES; i++) {
+    linkBroadcast(text, length);
   }
 }
 
@@ -473,15 +435,15 @@ void dispatch(JsonDocument& d, int target, unsigned long startTime, bool reliabl
   size_t length = serializeJson(d, body, sizeof(body));
   body[length - 1] = 0;  // the closing brace, put back together with the age
 
-  bool unicast = target >= 0 && displays[target].ip != IPAddress(0, 0, 0, 0);
-  IPAddress host = unicast ? displays[target].ip : IPAddress(0, 0, 0, 0);
-  transmit(body, unicast, host, startTime);
+  bool unicast = target >= 0;
+  const uint8_t* mac = unicast ? displays[target].mac : NULL;
+  transmit(body, unicast, mac, startTime);
   Serial.printf("sent %s}\n", body);
 
   // Nothing known yet means nothing to wait for - the command still went
   // out, it just cannot be checked.
   uint16_t missing = target >= 0 ? (1 << target) : onlineMask();
-  if (seq == 0 || missing == 0 || !wifiActive) {
+  if (seq == 0 || missing == 0 || !radioReady) {
     return;
   }
   Pending* entry = allocatePending();
@@ -490,7 +452,9 @@ void dispatch(JsonDocument& d, int target, unsigned long startTime, bool reliabl
   strlcpy(entry->command, d["cmd"] | "", sizeof(entry->command));
   strcpy(entry->body, body);
   entry->unicast = unicast;
-  entry->host = host;
+  if (unicast) {
+    memcpy(entry->mac, mac, sizeof(entry->mac));
+  }
   entry->startTime = startTime;
   entry->missing = missing;
   entry->attempts = 1;
@@ -542,7 +506,7 @@ void retryPending() {
     }
     entry.attempts++;
     entry.nextAttemptAt = now + RETRY_INTERVAL;
-    transmit(entry.body, entry.unicast, entry.host, entry.startTime);
+    transmit(entry.body, entry.unicast, entry.mac, entry.startTime);
   }
 }
 
@@ -698,9 +662,9 @@ void notify(const char* command, bool resynced) {
 }
 
 /**
- * A heartbeat carries what the display is doing. After a start or a gap in
- * the wifi the controller has no idea, so it takes the answer from the
- * display that reports instead of pushing its own outdated view back onto
+ * A heartbeat carries what the display is doing. After a start the
+ * controller has no idea, so it takes the answer from the display that
+ * reports instead of pushing its own outdated view back onto
  * the displays.
  */
 void adoptStateFromPresence(int index) {
@@ -752,7 +716,7 @@ void keepClockInSync(int index) {
   Serial.printf("clock of display %d is off, time sent\n", d.displayNo);
 }
 
-void handlePresence(const char* key, const char* reportedId, IPAddress ip, bool hello) {
+void handlePresence(const char* key, const char* reportedId, bool hello) {
   unsigned long now = millis();
   int index = findDisplay(key);
   bool known = index >= 0;
@@ -767,7 +731,7 @@ void handlePresence(const char* key, const char* reportedId, IPAddress ip, bool 
   Display& d = displays[index];
   strlcpy(d.deviceId, isUsableId(reportedId) ? reportedId : "", sizeof(d.deviceId));
   d.displayNo = doc["dn"] | d.displayNo;
-  d.ip = ip;
+  memcpy(d.mac, packet.mac, sizeof(d.mac));
   d.lastSeen = now;
   d.online = true;
   if (!doc["ph"].isNull()) {
@@ -788,9 +752,9 @@ void handlePresence(const char* key, const char* reportedId, IPAddress ip, bool 
 
   if (reason != ReasonNone && now - d.lastAnnounced >= ANNOUNCE_DEBOUNCE) {
     d.lastAnnounced = now;
-    Serial.printf("display %d (%s) %s, %s\n", d.displayNo, d.key,
+    Serial.printf("display %d (%s) %s, %d dBm\n", d.displayNo, d.key,
                   reason == ReasonNew ? "connected" : reason == ReasonRejoined ? "back" : "restarted",
-                  ip.toString().c_str());
+                  packet.rssi);
     onDisplayAvailable(index);
   }
 
@@ -798,29 +762,22 @@ void handlePresence(const char* key, const char* reportedId, IPAddress ip, bool 
   keepClockInSync(index);
 }
 
-void handlePacket(IPAddress sender) {
+void handlePacket() {
   const char* source = doc["src"] | "";
   if (strcmp(source, "display") != 0) {
-    return;  // our own broadcasts and those of the app come back to us
+    return;  // the commands of another controller
   }
   const char* command = doc["cmd"] | "";
   const char* reportedId = doc["id"] | "";
 
-  IPAddress ip = sender;
-  const char* reportedIp = doc["ip"] | "";
-  if (reportedIp[0] != 0) {
-    IPAddress parsed;
-    if (parsed.fromString(reportedIp)) {
-      ip = parsed;
-    }
-  }
-
+  char macText[13];
+  linkMacToText(packet.mac, macText);
   char key[16];
-  strlcpy(key, isUsableId(reportedId) ? reportedId : ip.toString().c_str(), sizeof(key));
+  strlcpy(key, isUsableId(reportedId) ? reportedId : macText, sizeof(key));
 
   bool hello = strcmp(command, "hello") == 0;
   if (hello || strcmp(command, "heartbeat") == 0) {
-    handlePresence(key, reportedId, ip, hello);
+    handlePresence(key, reportedId, hello);
     return;  // presence traffic never reaches the ui
   }
 
@@ -842,10 +799,10 @@ void handlePacket(IPAddress sender) {
     if (index < 0) {
       return;
     }
-    displays[index].ip = ip;
     strlcpy(displays[index].deviceId, isUsableId(reportedId) ? reportedId : "", sizeof(displays[index].deviceId));
   }
   displays[index].displayNo = doc["dn"] | displays[index].displayNo;
+  memcpy(displays[index].mac, packet.mac, sizeof(displays[index].mac));
   displays[index].lastSeen = millis();
   displays[index].online = true;
 
@@ -869,93 +826,13 @@ void handlePacket(IPAddress sender) {
 void receiveLoop() {
   // a handful per pass, so a burst of heartbeats cannot starve the screen
   for (uint8_t i = 0; i < 8; i++) {
-    if (udp.parsePacket() <= 0) {
+    if (!linkReceive(packet)) {
       return;
     }
-    int length = udp.read(receiveBuffer, sizeof(receiveBuffer) - 1);
-    if (length <= 0) {
+    if (deserializeJson(doc, packet.data)) {
       continue;
     }
-    receiveBuffer[length] = 0;
-    IPAddress sender = udp.remoteIP();
-    if (deserializeJson(doc, receiveBuffer)) {
-      continue;
-    }
-    handlePacket(sender);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// wifi state machine - reconnects for as long as it takes
-// ---------------------------------------------------------------------------
-
-void startWifiConnect() {
-  Serial.printf("connecting to ssid %s\n", WIFI_SSID);
-  netState = NetConnecting;
-  netAttemptStarted = millis();
-  WiFi.disconnect(false, false);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-}
-
-void goOnline() {
-  netState = NetOnline;
-  netBackoff = NET_BACKOFF_MIN;
-  wifiActive = true;
-
-  // the socket still holds the old interface address, so it has to be
-  // reopened for every fresh lease - without this nothing arrives after a
-  // reconnect.
-  if (udpStarted) {
-    udp.stop();
-  }
-  udp.begin(UDP_PORT);
-  udpStarted = true;
-
-  Serial.printf("wifi connected, ip %s, %d dBm\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
-
-  // whatever happened while nothing was received - the displays know
-  session.stale = true;
-  clockStartNtp();
-  sendDiscover();
-  discoverNextTime = millis() + DISCOVER_INTERVAL;
-}
-
-void goOffline() {
-  Serial.println("wifi connection lost");
-  netState = NetOffline;
-  wifiActive = false;
-  netNextAttempt = millis();  // try again at once, then back off
-  for (uint8_t i = 0; i < MAX_PENDING; i++) {
-    pending[i].used = false;
-  }
-}
-
-void wifiLoop() {
-  unsigned long now = millis();
-  switch (netState) {
-    case NetOffline:
-      if ((long)(now - netNextAttempt) >= 0) {
-        startWifiConnect();
-      }
-      break;
-
-    case NetConnecting:
-      if (WiFi.status() == WL_CONNECTED) {
-        goOnline();
-      } else if (now - netAttemptStarted > NET_CONNECT_TIMEOUT) {
-        Serial.printf("wifi connect timed out, next try in %lu ms\n", (unsigned long)netBackoff);
-        WiFi.disconnect(false, false);
-        netState = NetOffline;
-        netNextAttempt = now + netBackoff;
-        netBackoff = netBackoff < NET_BACKOFF_MAX ? netBackoff * 2 : NET_BACKOFF_MAX;
-      }
-      break;
-
-    case NetOnline:
-      if (WiFi.status() != WL_CONNECTED) {
-        goOffline();
-      }
-      break;
+    handlePacket();
   }
 }
 
@@ -969,19 +846,18 @@ void netBegin(NetEventHandler handler) {
   eventHandler = handler;
   seqBegin();
 
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_STA);
-  WiFi.setAutoReconnect(true);
-  WiFi.setSleep(false);  // modem sleep makes the board miss udp broadcasts
-  WiFi.setHostname("archerytimer-controller");
-  // connecting is driven by netLoop(), so a missing access point does not
-  // block the start and is retried forever.
-  startWifiConnect();
+  radioReady = linkBegin();
+  if (!radioReady) {
+    Serial.println("radio did not come up - the displays cannot be reached");
+    return;
+  }
+  // whatever is going on out there - the displays know
+  sendDiscover();
+  discoverNextTime = millis() + DISCOVER_INTERVAL;
 }
 
 void netLoop() {
-  wifiLoop();
-  if (!wifiActive) {
+  if (!radioReady) {
     return;
   }
 
@@ -1000,8 +876,8 @@ void netLoop() {
   }
 }
 
-bool netWifiConnected() {
-  return wifiActive;
+bool netRadioReady() {
+  return radioReady;
 }
 
 uint8_t netDisplaysOnline() {

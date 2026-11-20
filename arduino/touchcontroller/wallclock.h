@@ -5,7 +5,8 @@
 /**
  * The time of day. The board has no clock chip, so the time comes from
  * wherever it can be had - in rising order of trust: a display that reports
- * its DS3231, the settings page, an ntp server.
+ * its DS3231, the settings page. The boards talk by ESP-NOW and are on no
+ * network, so there is no time server to ask.
  *
  * The countdown does not depend on it. It is needed for the end of the lunch
  * break, for the clock on the status view of the displays and for sequence
@@ -13,13 +14,9 @@
  */
 enum ClockSource { ClockNone = 0,
                    ClockDisplay,
-                   ClockManual,
-                   ClockNtp };
+                   ClockManual };
 
 void clockBegin();
-
-/** asks the ntp server - to be called whenever the wifi comes up */
-void clockStartNtp();
 
 ClockSource clockSource();
 bool clockValid();

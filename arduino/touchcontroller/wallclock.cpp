@@ -3,8 +3,6 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include "esp_sntp.h"
-
 #include "config.h"
 
 namespace {
@@ -15,13 +13,6 @@ namespace {
 const time_t FALLBACK_DAY = 1767225600;
 
 ClockSource source = ClockNone;
-
-// set from the sntp task
-volatile bool ntpSynced = false;
-
-void onNtpSync(struct timeval* tv) {
-  ntpSynced = true;
-}
 
 void setClock(uint64_t epochMs) {
   struct timeval tv = { (time_t)(epochMs / 1000), (suseconds_t)((epochMs % 1000) * 1000) };
@@ -35,17 +26,7 @@ void clockBegin() {
   tzset();
 }
 
-void clockStartNtp() {
-#ifdef NTP_SERVER
-  sntp_set_time_sync_notification_cb(onNtpSync);
-  configTzTime(TIMEZONE, NTP_SERVER);
-#endif
-}
-
 ClockSource clockSource() {
-  if (ntpSynced) {
-    source = ClockNtp;
-  }
   return source;
 }
 
@@ -76,8 +57,6 @@ void clockSetManual(uint8_t hour, uint8_t minute) {
   local.tm_sec = 0;
   local.tm_isdst = -1;
   setClock((uint64_t)mktime(&local) * 1000ULL);
-  // stands until the ntp server answers the next time
-  ntpSynced = false;
   source = ClockManual;
 }
 
