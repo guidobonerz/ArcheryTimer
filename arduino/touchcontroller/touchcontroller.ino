@@ -15,9 +15,8 @@
  *   lvgl 9.x          configured by build_opt.h in this folder, no lv_conf.h
  *   ArduinoJson 7.x
  *
- * Auth.h in this folder holds the wifi the displays are on:
- *   #define WIFI_SSID "..."
- *   #define WIFI_PASS "..."
+ * The displays are reached by ESP-NOW, without an access point. All boards
+ * have to be on the same wifi channel: LINK_CHANNEL in espnow_link.h.
  */
 
 #include "board.h"

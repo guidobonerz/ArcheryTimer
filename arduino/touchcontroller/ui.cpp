@@ -2,6 +2,7 @@
 
 #include <lvgl.h>
 
+#include "board.h"
 #include "config.h"
 #include "net.h"
 #include "settings.h"
@@ -98,6 +99,7 @@ lv_obj_t* settingsButton;
 lv_obj_t* backButton;
 lv_obj_t* pages[2];
 lv_obj_t* statusLabel;
+lv_obj_t* batteryLabel;
 lv_obj_t* clockLabel;
 
 lv_obj_t* reshootSwitch;
@@ -819,7 +821,7 @@ void buildSettingsPage(lv_obj_t* page) {
   lv_obj_t* row = makeRow(page, 0, 0, TextGroups);
   groupButtons[0] = makeButton(row, RowWidth - 190, 3, 80, 48, "AB", FontSmall, ColorButton);
   onClicked(groupButtons[0], onGroupClicked, 1);
-  groupButtons[1] = makeButton(row, RowWidth - 102, 3, 102, 48, "AB-CD", FontSmall, ColorButton);
+  groupButtons[1] = makeButton(row, RowWidth - 102, 3, 102, 48, "CD", FontSmall, ColorButton);
   onClicked(groupButtons[1], onGroupClicked, 2);
 
   makeStepper(makeRow(page, 0, 1, TextPasses), StepperPasses);
@@ -914,9 +916,23 @@ void refreshStatus() {
   }
   snprintf(buffer, sizeof(buffer), LV_SYMBOL_WIFI " %u/%u", online, known);
   setText(statusLabel, buffer);
-  bool good = netWifiConnected() && online > 0 && online == known;
-  bool bad = !netWifiConnected() || online == 0;
+  bool good = netRadioReady() && online > 0 && online == known;
+  bool bad = !netRadioReady() || online == 0;
   setTextColor(statusLabel, good ? ColorOnline : bad ? ColorOffline : ColorAccent);
+
+  int8_t battery = boardBatteryPercent();
+  if (battery < 0) {
+    strcpy(buffer, LV_SYMBOL_BATTERY_EMPTY " --");
+  } else {
+    const char* symbol = battery > 80 ? LV_SYMBOL_BATTERY_FULL
+                         : battery > 55 ? LV_SYMBOL_BATTERY_3
+                         : battery > 30 ? LV_SYMBOL_BATTERY_2
+                         : battery > 10 ? LV_SYMBOL_BATTERY_1
+                         : LV_SYMBOL_BATTERY_EMPTY;
+    snprintf(buffer, sizeof(buffer), "%s %d%%", symbol, battery);
+  }
+  setText(batteryLabel, buffer);
+  setTextColor(batteryLabel, battery < 0 ? ColorDim : battery <= 10 ? ColorOffline : battery <= 20 ? ColorAccent : ColorText);
 
   uint8_t hour;
   uint8_t minute;
@@ -943,7 +959,9 @@ void buildScreen() {
   onClicked(backButton, onTabClicked, TabTournament);
 
   statusLabel = makeLabel(bar, "", FontNormal, ColorOffline);
-  lv_obj_align(statusLabel, LV_ALIGN_RIGHT_MID, -120, 0);
+  lv_obj_align(statusLabel, LV_ALIGN_RIGHT_MID, -240, 0);
+  batteryLabel = makeLabel(bar, "", FontNormal, ColorDim);
+  lv_obj_align(batteryLabel, LV_ALIGN_RIGHT_MID, -120, 0);
   clockLabel = makeLabel(bar, "--:--", FontNormal, ColorText);
   lv_obj_align(clockLabel, LV_ALIGN_RIGHT_MID, -12, 0);
 
@@ -959,7 +977,7 @@ void buildScreen() {
 }
 
 /**
- * After a start or a gap in the wifi the displays may be on a view somebody
+ * After a start the displays may be on a view somebody
  * else put them on - the app, or this controller before it was restarted.
  * The page takes it over instead of pushing its own choice back.
  */

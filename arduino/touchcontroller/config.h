@@ -44,6 +44,20 @@
 #define EXIO_USB_SEL 0x20      // EXIO5, high hands the usb pins to the can transceiver
 
 // ---------------------------------------------------------------------------
+// battery
+// ---------------------------------------------------------------------------
+
+// The board has no battery sense of its own. The battery is measured on the
+// pin of the socket marked Sensor AD, through a voltage divider that has to be
+// wired from the battery: battery+ - R1 - pin - R2 - GND. The pin takes no more
+// than some 3 V, so R1 = R2 (100k each) fits a single LiPo cell.
+#define BATTERY_PIN_ADC 6
+// (R1 + R2) / R2
+#define BATTERY_DIVIDER 2.0f
+// below this there is no battery at the divider
+#define BATTERY_MIN_MILLIVOLTS 2500
+
+// ---------------------------------------------------------------------------
 // wall clock
 // ---------------------------------------------------------------------------
 
@@ -51,14 +65,9 @@
 // offset. POSIX notation, this one is Central European Time with summer time.
 #define TIMEZONE "CET-1CEST,M3.5.0,M10.5.0/3"
 
-// Asked for the time when the wifi has a way out to the internet. Without it
-// the clock is taken from a display or set by hand on the settings page.
-// Comment out to never ask.
-#define NTP_SERVER "pool.ntp.org"
-
 // ---------------------------------------------------------------------------
 // protocol - has to match the display firmware and the android app
 // ---------------------------------------------------------------------------
 
-#define UDP_PORT 5005
+// the radio channel the boards meet on is LINK_CHANNEL in espnow_link.h
 #define MAX_DISPLAYS 12

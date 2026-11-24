@@ -9,7 +9,6 @@
 #include <WiFi.h>
 #include <esp_system.h>
 #include <esp_mac.h>
-#include <WiFiUdp.h>
 #include <ArduinoJson.h>
 #include <Wire.h>
 #include <time.h>
@@ -17,14 +16,10 @@
  #include <DFPlayerMini_Fast.h>
 #include "Preferences.h"
 #include "logo1.h"
-
-#if __has_include("Auth.h")
-#include "Auth.h"
-#else
-#warning "Please create Auth.h with SSID & PASS defined"
-#define WIFI_SSID "your-ssid"
-#define WIFI_PASS "your-password"
-#endif
+// The displays and the controllers talk by ESP-NOW, straight from board to
+// board without an access point. All of them have to be on the same wifi
+// channel: LINK_CHANNEL in espnow_link.h.
+#include "espnow_link.h"
 
 #define RW_MODE false
 #define RO_MODE true
@@ -154,7 +149,8 @@ unsigned long runAt = 0;
 // than the last one carried out is a repeat - or a straggler that a newer
 // command has already overtaken - and must not run again.
 uint64_t lastCommandSeq = 0;
-IPAddress controllerAddress;
+// the controller the last command came from - it gets the acknowledgement
+uint8_t controllerMac[6];
 
 // ---------------------------------------------------------------------------
 // wall clock - a DS3231 on the i2c bus, kept in step by the app
@@ -178,24 +174,6 @@ time_t rtcWriteSecond = 0;
 // ---------------------------------------------------------------------------
 // network state, identity and presence
 // ---------------------------------------------------------------------------
-enum NetState { NetOffline = 300,
-                NetConnecting,
-                NetOnline };
-
-NetState netState = NetOffline;
-unsigned long netNextAttempt = 0;
-unsigned long netAttemptStarted = 0;
-uint32_t netBackoff = 1000;
-const uint32_t NET_BACKOFF_MIN = 1000;
-const uint32_t NET_BACKOFF_MAX = 30000;
-const uint32_t NET_CONNECT_TIMEOUT = 15000;
-bool udpStarted = false;
-
-// while the wifi is gone the status screen is shown, but only if nothing is
-// running - a countdown must not be interrupted by a lost connection.
-View viewBeforeOffline = MainView;
-bool viewSuspendedByOffline = false;
-
 // stable identity, derived from the wifi mac. displayNo is the number the user
 // assigns from the app, the id stays the same for the life of the board.
 char displayId[7] = "000000";
@@ -221,8 +199,6 @@ unsigned long masterCheckNextTime = 0;
 const uint16_t MASTER_CHECK_INTERVAL = 500;
 
 
-const char* udpAddress = "255.255.255.255";
-const char* controllerIp;
 const char* CHANGE_VIEW = "change_view";
 const char* TOURNAMENT_MODE = "tournament_mode";
 
@@ -254,13 +230,8 @@ const char* RESYNC = "resync";
 const char* SET_DISPLAY_NO = "set_display_no";
 const char* SET_TIME = "set_time";
 const char* ACK = "ack";
-unsigned int localPort = 5005;
-
-
-char receiveBuffer[512];
-
-//char ssid[] = "";
-//char pass[] = "";
+// the packet "doc" was read from - the document points into its text
+LinkPacket packet;
 
 
 Adafruit_Protomatter matrix(
@@ -272,7 +243,6 @@ Adafruit_Protomatter matrix(
   false);                     // No double-buffering here (see "doublebuffer" example)
 
 Preferences prefs;
-WiFiUDP udp;
 JsonDocument doc;
 JsonDocument out;
 
@@ -305,35 +275,19 @@ void setup(void) {
 
   Serial.begin(115200);
 
-  prefs.begin("archery_timer", RW_MODE);
-  if (!prefs.getBool("wifi_set", false)) {
-    prefs.putString("ssid", "wlan_ssid");
-    prefs.putString("auth", "wlan_auth");
-    prefs.putBool("wifi_set", true);
-
-    Serial.println("Store new parameters to flash memory");
-  } else {
-    Serial.printf("Restore parameters from flash memory :%s / %s\n", prefs.getString("ssid"), prefs.getString("auth"));
-  }
-  prefs.end();
-
-
-
   randomSeed(esp_random());
   initDisplayIdentity();
   initClock();
 
   if (wifiEnabled) {
-    WiFi.persistent(false);
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.setSleep(false);  // modem sleep makes the board miss udp broadcasts
-    char hostname[32];
-    snprintf(hostname, sizeof(hostname), "archerytimer-%s", displayId);
-    WiFi.setHostname(hostname);
-    // connecting is driven by networkLoop(), so a missing access point does
-    // not block the boot and is retried forever.
-    startWifiConnect();
+    wifiActive = linkBegin();
+    if (wifiActive) {
+      // tells the controllers that this display is there and has just started
+      scheduleHelloBurst(false);
+      heartbeatNextTime = millis() + HEARTBEAT_INTERVAL;
+    } else {
+      Serial.println("radio did not come up - no controller can reach this display");
+    }
   } else {
     wifiActive = false;
     Serial.println("Wifi not enabled");
@@ -366,39 +320,14 @@ void setup(void) {
 
 void loop(void) {
 
-  networkLoop();
   clockLoop();
 
   if (wifiActive) {
     presenceLoop();
-
-    int packetSize = udp.parsePacket();
-    if (packetSize > 0) {
-      // never read more than the buffer holds - an oversized packet used to
-      // corrupt memory here and took the board down.
-      int len = udp.read(receiveBuffer, sizeof(receiveBuffer) - 1);
-      if (len < 0) {
-        len = 0;
-      }
-      receiveBuffer[len] = 0;
-
-      DeserializationError error = deserializeJson(doc, receiveBuffer);
-      if (error) {
-        Serial.print(F("deserializeJson() failed: "));
-        Serial.println(error.f_str());
-      } else {
-        const char* source = doc["src"];
-        if (source != NULL) {
-          if (strcmp(source, "display") == 0) {
-            handlePeerPacket();
-          } else if (strcmp(source, "controller") == 0 && isAddressedToMe()) {
-            Serial.println(receiveBuffer);
-            controllerAddress = udp.remoteIP();
-            syncDelay = doc["sd"] | 0;
-            handleControllerCommand();
-          }
-        }
-      }
+    // a few per pass, so a burst of packets cannot push the countdown tick
+    // around
+    for (uint8_t i = 0; i < 4 && linkReceive(packet); i++) {
+      handleRadioPacket();
     }
   }
 
@@ -685,23 +614,6 @@ bool secondElapsed() {
   }
   targetTime += 1000;
   return true;
-}
-
-void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your board's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
 }
 
 void drawTrafficLight(uint16_t color, bool enabled) {
@@ -1326,19 +1238,12 @@ void sendStatus(uint8_t groupCurrent, uint8_t passCurrent, uint8_t groupCount, u
   out["em"] = emergency;
   out["v"] = currentViewName();
   sendPacket(out);
-  /*
-  sprintf(responseBuffer, "src:%s|cmd:%s|dno:%d|cgp:%d|cps:%d|grp:%d|cpt:%d|cat:%d\0", "disp", "stat", displayNo, currentGroup, currentPasses, groups, prepareCurrent, actionCurrent);
-  udp.beginPacket(controllerIp, localPort);
-  int i = 0;
-  while (responseBuffer[i] != 0) udp.write((uint8_t)responseBuffer[i++]);
-  udp.endPacket();
-*/
 }
 
 // acknowledgements go straight back to the controller, they are of no
 // interest to the other displays
 void sendAck(uint64_t seq) {
-  if (!wifiActive || !udpStarted) {
+  if (!wifiActive) {
     return;
   }
   out.clear();
@@ -1347,18 +1252,46 @@ void sendAck(uint64_t seq) {
   out["id"] = displayId;
   out["dn"] = displayNo;
   out["seq"] = seq;
-  udp.beginPacket(controllerAddress, localPort);
-  serializeJson(out, udp);
-  udp.endPacket();
+  char text[LINK_MAX_PAYLOAD + 1];
+  size_t length = serializeJson(out, text, sizeof(text));
+  linkSend(controllerMac, text, length);
 }
 
+// everything else goes out to all: the controllers follow the state, the
+// other displays the presence
 void sendPacket(JsonDocument& d) {
-  if (!wifiActive || !udpStarted) {
+  if (!wifiActive) {
     return;
   }
-  udp.beginPacket(udpAddress, localPort);
-  serializeJson(d, udp);
-  udp.endPacket();
+  if (measureJson(d) > LINK_MAX_PAYLOAD) {
+    Serial.println("message too long for one frame, not sent");
+    return;
+  }
+  char text[LINK_MAX_PAYLOAD + 1];
+  size_t length = serializeJson(d, text, sizeof(text));
+  linkBroadcast(text, length);
+}
+
+/** one packet off the radio: the presence of a display or a command */
+void handleRadioPacket() {
+  DeserializationError error = deserializeJson(doc, packet.data);
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
+  }
+  const char* source = doc["src"];
+  if (source == NULL) {
+    return;
+  }
+  if (strcmp(source, "display") == 0) {
+    handlePeerPacket();
+  } else if (strcmp(source, "controller") == 0 && isAddressedToMe()) {
+    memcpy(controllerMac, packet.mac, sizeof(controllerMac));
+    syncDelay = doc["sd"] | 0;
+    Serial.printf("%s (%d dBm)\n", doc["cmd"] | "", packet.rssi);
+    handleControllerCommand();
+  }
 }
 
 /**
@@ -1698,101 +1631,6 @@ const char* currentViewName() {
   return HOME;
 }
 
-// ---------------------------------------------------------------------------
-// wifi state machine - reconnects for as long as it takes
-// ---------------------------------------------------------------------------
-
-void startWifiConnect() {
-  Serial.printf("connecting to ssid %s\n", WIFI_SSID);
-  netState = NetConnecting;
-  netAttemptStarted = millis();
-  WiFi.disconnect(false, false);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-}
-
-void networkLoop() {
-  if (!wifiEnabled) {
-    return;
-  }
-
-  unsigned long now = millis();
-
-  switch (netState) {
-    case NetOffline:
-      if ((long)(now - netNextAttempt) >= 0) {
-        startWifiConnect();
-      }
-      break;
-
-    case NetConnecting:
-      if (WiFi.status() == WL_CONNECTED) {
-        goOnline();
-      } else if (now - netAttemptStarted > NET_CONNECT_TIMEOUT) {
-        Serial.printf("wifi connect timed out, next try in %lu ms\n", (unsigned long)netBackoff);
-        WiFi.disconnect(false, false);
-        netState = NetOffline;
-        netNextAttempt = now + netBackoff;
-        netBackoff = netBackoff < NET_BACKOFF_MAX ? netBackoff * 2 : NET_BACKOFF_MAX;
-      }
-      break;
-
-    case NetOnline:
-      if (WiFi.status() != WL_CONNECTED) {
-        goOffline();
-      }
-      break;
-  }
-}
-
-void goOnline() {
-  netState = NetOnline;
-  netBackoff = NET_BACKOFF_MIN;
-  wifiActive = true;
-
-  // the socket still holds the old interface address, so it has to be reopened
-  // for every fresh lease - without this nothing arrives after a reconnect.
-  if (udpStarted) {
-    udp.stop();
-  }
-  udp.begin(localPort);
-  udpStarted = true;
-
-  Serial.println("wifi connected");
-  printWifiStatus();
-
-  scheduleHelloBurst(false);
-  heartbeatNextTime = millis() + HEARTBEAT_INTERVAL;
-
-  restoreViewAfterOffline();
-}
-
-void goOffline() {
-  Serial.println("wifi connection lost");
-  netState = NetOffline;
-  wifiActive = false;
-  netNextAttempt = millis();  // try again at once, then back off
-  peerCount = 0;
-  suspendViewWhileOffline();
-}
-
-void suspendViewWhileOffline() {
-  // a running countdown must keep running, the status screen is only shown
-  // when nothing is going on.
-  if (phase == IdlePhase && !viewSuspendedByOffline) {
-    viewBeforeOffline = view;
-    viewSuspendedByOffline = true;
-    view = StatusView;
-  }
-}
-
-void restoreViewAfterOffline() {
-  if (viewSuspendedByOffline) {
-    viewSuspendedByOffline = false;
-    view = viewBeforeOffline;
-    redrawCurrentView();
-  }
-}
-
 void redrawCurrentView() {
   if (view == ShootInView) {
     showShootInView();
@@ -1812,7 +1650,7 @@ void redrawCurrentView() {
 }
 
 // ---------------------------------------------------------------------------
-// presence - hello on every (re)connect, heartbeat while online
+// presence - hello at the start and when asked, heartbeat all the time
 // ---------------------------------------------------------------------------
 
 void scheduleHelloBurst(bool boot) {
@@ -1846,8 +1684,6 @@ void fillPresence(JsonDocument& d, const char* command) {
   d["cmd"] = command;
   d["id"] = displayId;
   d["dn"] = displayNo;
-  d["ip"] = WiFi.localIP().toString();
-  d["rssi"] = WiFi.RSSI();
   d["up"] = (uint32_t)(millis() / 1000);
   d["m"] = isMaster;
   // the wall clock in ms since 1970 (UTC), 0 as long as it was never set - the
@@ -2000,7 +1836,6 @@ void applyResync() {
   tzOffset = val["tz"] | tzOffset;
   // taken over whatever the view, so it is there when the break is put up
   setLunchTime(val["lt"], val["le"] | (uint32_t)0);
-  viewSuspendedByOffline = false;
 
   hold = val["h"] | false;
   currentGroup = val["cg"] | 1;

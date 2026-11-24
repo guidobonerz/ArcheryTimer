@@ -9,14 +9,15 @@
  *
  * @param resynced true when this report ended a stretch in which the
  *        controller did not know what the displays were doing - after its
- *        start and after the wifi was gone.
+ *        start.
  */
 typedef void (*NetEventHandler)(const char* command, JsonDocument& message, bool resynced);
 
 void netBegin(NetEventHandler handler);
 void netLoop();
 
-bool netWifiConnected();
+/** false when the ESP-NOW radio did not come up */
+bool netRadioReady();
 uint8_t netDisplaysOnline();
 uint8_t netDisplaysKnown();
 
