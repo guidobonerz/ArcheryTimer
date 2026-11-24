@@ -44,6 +44,20 @@
 #define EXIO_USB_SEL 0x20      // EXIO5, high hands the usb pins to the can transceiver
 
 // ---------------------------------------------------------------------------
+// battery
+// ---------------------------------------------------------------------------
+
+// The board has no battery sense of its own. The battery is measured on the
+// pin of the socket marked Sensor AD, through a voltage divider that has to be
+// wired from the battery: battery+ - R1 - pin - R2 - GND. The pin takes no more
+// than some 3 V, so R1 = R2 (100k each) fits a single LiPo cell.
+#define BATTERY_PIN_ADC 6
+// (R1 + R2) / R2
+#define BATTERY_DIVIDER 2.0f
+// below this there is no battery at the divider
+#define BATTERY_MIN_MILLIVOLTS 2500
+
+// ---------------------------------------------------------------------------
 // wall clock
 // ---------------------------------------------------------------------------
 

@@ -229,7 +229,61 @@ bool panelBegin() {
   return true;
 }
 
+const uint16_t BATTERY_INTERVAL = 1000;
+unsigned long batteryNextTime = 0;
+// smoothed voltage of the battery, 0 as long as there is none
+float batteryMillivolts = 0;
+
+// open circuit voltage of a LiPo cell against its charge
+const struct {
+  uint16_t millivolts;
+  uint8_t percent;
+} BATTERY_CURVE[] = {
+  { 4200, 100 }, { 4110, 90 }, { 4020, 80 }, { 3950, 70 }, { 3870, 60 }, { 3840, 50 },
+  { 3800, 40 }, { 3770, 30 }, { 3730, 20 }, { 3690, 10 }, { 3610, 5 }, { 3300, 0 }
+};
+
+void batteryPoll() {
+  unsigned long now = millis();
+  if ((long)(now - batteryNextTime) < 0) {
+    return;
+  }
+  batteryNextTime = now + BATTERY_INTERVAL;
+
+  uint32_t sum = 0;
+  for (uint8_t i = 0; i < 8; i++) {
+    sum += analogReadMilliVolts(BATTERY_PIN_ADC);
+  }
+  float millivolts = sum / 8.0f * BATTERY_DIVIDER;
+  if (millivolts < BATTERY_MIN_MILLIVOLTS) {
+    batteryMillivolts = 0;
+  } else if (batteryMillivolts == 0) {
+    batteryMillivolts = millivolts;
+  } else {
+    // the radio and the backlight pull the voltage down for moments
+    batteryMillivolts += (millivolts - batteryMillivolts) * 0.1f;
+  }
+}
+
 }  // namespace
+
+int8_t boardBatteryPercent() {
+  if (batteryMillivolts == 0) {
+    return -1;
+  }
+  const uint8_t count = sizeof(BATTERY_CURVE) / sizeof(BATTERY_CURVE[0]);
+  if (batteryMillivolts >= BATTERY_CURVE[0].millivolts) {
+    return 100;
+  }
+  for (uint8_t i = 1; i < count; i++) {
+    if (batteryMillivolts >= BATTERY_CURVE[i].millivolts) {
+      float span = BATTERY_CURVE[i - 1].millivolts - BATTERY_CURVE[i].millivolts;
+      float part = (batteryMillivolts - BATTERY_CURVE[i].millivolts) / span;
+      return BATTERY_CURVE[i].percent + (int8_t)(part * (BATTERY_CURVE[i - 1].percent - BATTERY_CURVE[i].percent) + 0.5f);
+    }
+  }
+  return 0;
+}
 
 bool boardBegin() {
   Wire.begin(I2C_PIN_SDA, I2C_PIN_SCL, I2C_FREQUENCY);
@@ -273,6 +327,7 @@ bool boardBegin() {
 }
 
 void boardLoop() {
+  batteryPoll();
   flushMicros = 0;
   flushCount = 0;
   uint32_t start = micros();
